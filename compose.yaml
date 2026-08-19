@@ -1,0 +1,66 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file: .env
+    environment:
+      SNAKECARE_DATABASE_URL: postgresql+asyncpg://snakecare:snakecare@postgres:5432/snakecare
+      SNAKECARE_FIREBASE_CREDENTIALS_PATH: /run/secrets/firebase-service-account.json
+      SNAKECARE_REPORT_STORAGE_PATH: /var/lib/snakecare/reports
+      SNAKECARE_SNAKEBITE_PHOTO_STORAGE_PATH: /var/lib/snakecare/snakebite-photos
+    volumes:
+      - ./secrets/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
+      - report_uploads:/var/lib/snakecare/reports
+      - snakebite_photos:/var/lib/snakecare/snakebite-photos
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: snakecare
+      POSTGRES_USER: snakecare
+      POSTGRES_PASSWORD: snakecare
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U snakecare -d snakecare"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    profiles: ["cache"]
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  web:
+    image: nginx:1.29-alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./mobile/build/web:/usr/share/nginx/html:ro
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
+  report_uploads:
+  snakebite_photos:

@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: snakecare-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    dockerCommand: >-
+      sh -c 'alembic upgrade head && python scripts/seed_review_data.py &&
+      exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-10000} --proxy-headers'
+    healthCheckPath: /api/v1/ready
+    autoDeployTrigger: commit
+    envVars:
+      - key: SNAKECARE_ENVIRONMENT
+        value: production
+      - key: SNAKECARE_LOG_LEVEL
+        value: INFO
+      - key: SNAKECARE_DATABASE_URL
+        fromDatabase:
+          name: snakecare-postgres
+          property: connectionString
+      - key: SNAKECARE_JWT_SECRET
+        generateValue: true
+      - key: SNAKECARE_FIREBASE_PROJECT_ID
+        value: codeblooded1-3064a
+      - key: SNAKECARE_REDIS_ENABLED
+        value: "false"
+      - key: SNAKECARE_GEMINI_ENABLED
+        value: "false"
+      - key: SNAKECARE_CORS_ORIGINS
+        value: "[]"
+      - key: SNAKECARE_REPORT_STORAGE_PATH
+        value: /tmp/snakecare/reports
+      - key: SNAKECARE_SNAKEBITE_PHOTO_STORAGE_PATH
+        value: /tmp/snakecare/snakebite-photos
+
+databases:
+  - name: snakecare-postgres
+    plan: free
+    databaseName: snakecare
+    user: snakecare
