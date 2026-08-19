@@ -1,0 +1,170 @@
+{
+  "input": "C:\\Users\\niraj\\Documents\\Codex\\2026-08-06\\referenced-chatgpt-conversation-this-is-an\\outputs\\snakecare-ai\\documents\\synopsis\\FF_180_reference.docx",
+  "fonts_by_char_count": {
+    "Arial": 10
+  },
+  "direct_run_formatting_runs": 306,
+  "direct_paragraph_formatting_paragraphs": 96,
+  "heading_like_paragraphs_not_heading_style": [
+    {
+      "para_index": 6,
+      "text": "                                                                                     \t\t\t\t\t\t\tFF No 180",
+      "style": "Normal"
+    },
+    {
+      "para_index": 14,
+      "text": "            \t\t\t\t\t\t\t\t\t\t\t\t\tFF No 180",
+      "style": "Normal"
+    },
+    {
+      "para_index": 23,
+      "text": "Title : Project Registration & Progress Review",
+      "style": "Normal"
+    },
+    {
+      "para_index": 24,
+      "text": "Title : Project Registration & Progress Review",
+      "style": "Normal"
+    },
+    {
+      "para_index": 25,
+      "text": "   FF No. 180",
+      "style": "Normal"
+    },
+    {
+      "para_index": 40,
+      "text": "Department: Information Technology",
+      "style": "Normal"
+    },
+    {
+      "para_index": 43,
+      "text": "Department: Information Technology",
+      "style": "Normal"
+    },
+    {
+      "para_index": 45,
+      "text": "Academic Year: 2026-27",
+      "style": "Normal"
+    },
+    {
+      "para_index": 46,
+      "text": "Academic Year: 2026-27",
+      "style": "Normal"
+    },
+    {
+      "para_index": 47,
+      "text": "Academic Year: 2026-27",
+      "style": "Normal"
+    },
+    {
+      "para_index": 48,
+      "text": "Academic Year: 2026-27",
+      "style": "Normal"
+    },
+    {
+      "para_index": 49,
+      "text": "Semester : III",
+      "style": "Normal"
+    },
+    {
+      "para_index": 50,
+      "text": "Semester : III",
+      "style": "Normal"
+    },
+    {
+      "para_index": 51,
+      "text": "Group No. : 13",
+      "style": "Normal"
+    },
+    {
+      "para_index": 52,
+      "text": "Group No. : 13",
+      "style": "Normal"
+    },
+    {
+      "para_index": 53,
+      "text": "Group No. : 13",
+      "style": "Normal"
+    },
+    {
+      "para_index": 54,
+      "text": "Group No. : 13",
+      "style": "Normal"
+    },
+    {
+      "para_index": 57,
+      "text": "Coordination Platform",
+      "style": "Normal"
+    },
+    {
+      "para_index": 60,
+      "text": "Coordination Platform",
+      "style": "Normal"
+    },
+    {
+      "para_index": 63,
+      "text": "Coordination Platform",
+      "style": "Normal"
+    }
+  ],
+  "examples": {
+    "direct_paragraph_formatting": [
+      {
+        "para_index": 5,
+        "text": "T",
+        "style": "Normal"
+      },
+      {
+        "para_index": 6,
+        "text": "                                                                                     \t\t\t\t\t\t\tFF No 180",
+        "style": "Normal"
+      },
+      {
+        "para_index": 7,
+        "text": "",
+        "style": "Normal"
+      },
+      {
+        "para_index": 8,
+        "text": "",
+        "style": "Normal"
+      },
+      {
+        "para_index": 9,
+        "text": "",
+        "style": "Normal"
+      }
+    ],
+    "direct_run_formatting": [
+      {
+        "para_index": 6,
+        "run_text": "FF No",
+        "style": "Normal"
+      },
+      {
+        "para_index": 6,
+        "run_text": " ",
+        "style": "Normal"
+      },
+      {
+        "para_index": 6,
+        "run_text": "180",
+        "style": "Normal"
+      },
+      {
+        "para_index": 13,
+        "run_text": "                                                                                ",
+        "style": "Normal"
+      },
+      {
+        "para_index": 13,
+        "run_text": "                         ",
+        "style": "Normal"
+      }
+    ]
+  },
+  "notes": [
+    "Direct formatting is not always wrong, but it often causes inconsistent output when templates change.",
+    "Heading-like paragraphs not using Heading styles can break TOC and accessibility."
+  ]
+}

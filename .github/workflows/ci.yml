@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: snakecare_test
+          POSTGRES_USER: snakecare
+          POSTGRES_PASSWORD: snakecare
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U snakecare -d snakecare_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://snakecare:snakecare@localhost:5432/snakecare_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: python -m pip install -e "./backend[dev]"
+      - run: ruff check backend
+      - run: mypy backend/app
+      - run: pytest backend --cov=backend/app --cov-report=term-missing --cov-fail-under=85
+
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+
