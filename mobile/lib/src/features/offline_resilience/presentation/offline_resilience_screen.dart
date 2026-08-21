@@ -21,7 +21,7 @@ class OfflineResilienceScreen extends StatefulWidget {
 }
 
 class _OfflineResilienceScreenState extends State<OfflineResilienceScreen> {
-  static const _firstAidVideoId = 'q9rsEiQxSn8';
+  static const _firstAidVideoId = 'fd42XW9RJeE';
   static const _symptomWeights = <String, int>{
     'Difficulty breathing': 5,
     'Drooping eyelids': 4,
@@ -320,7 +320,22 @@ class _OfflineResilienceScreenState extends State<OfflineResilienceScreen> {
             ),
           const SizedBox(height: 10),
           const Text(
-            'Snake-bite first aid education created in partnership with the International Federation of Red Cross and Red Crescent Societies. The video is guidance—not a substitute for emergency medical care.',
+            'Online snakebite first-aid education based on WHO emergency-care standards. The cached written steps above remain available without data.',
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: online
+                ? () => launchUrl(
+                      Uri.parse(
+                        'https://www.youtube.com/watch?v=$_firstAidVideoId',
+                      ),
+                      mode: LaunchMode.externalApplication,
+                    )
+                : null,
+            icon: const Icon(Icons.open_in_new),
+            label: Text(
+              online ? 'Open video in YouTube' : 'Video needs mobile data',
+            ),
           ),
         ]),
       );

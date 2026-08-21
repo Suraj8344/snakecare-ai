@@ -480,10 +480,29 @@ class _MedicalPassportEditorState extends State<MedicalPassportEditor> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Edit Medical Passport'),
-        actions: [TextButton(onPressed: _save, child: const Text('SAVE'))],
+        actions: [
+          IconButton(
+            key: const Key('passport_save_app_bar'),
+            onPressed: _save,
+            tooltip: 'Save Medical Passport',
+            icon: const Icon(Icons.save_outlined),
+          ),
+        ],
+      ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+        child: FilledButton.icon(
+          key: const Key('passport_save_button'),
+          onPressed: _save,
+          icon: const Icon(Icons.save_outlined),
+          label: const Text('Save information'),
+          style: FilledButton.styleFrom(
+            minimumSize: const Size.fromHeight(54),
+          ),
+        ),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         children: [
           const Text('Personal and emergency details'),
           const SizedBox(height: 12),

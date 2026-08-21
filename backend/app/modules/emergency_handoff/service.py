@@ -49,14 +49,18 @@ class EmergencyHandoffService:
         passport = await self.repository.get_passport(user.id)
         structured_summary = build_structured_summary(user, emergency, passport)
         location = structured_summary["emergency"]["location"]
+        latitude = emergency.latitude
+        longitude = emergency.longitude
         if (
             payload.consent_location
             and not location["missing"]
             and not location["value"].get("label")
+            and latitude is not None
+            and longitude is not None
         ):
             location["value"]["label"] = await self.place_resolver.resolve(
-                emergency.latitude,
-                emergency.longitude,
+                latitude,
+                longitude,
             )
             if location["value"]["label"]:
                 location["source"] = "patient_location_plus_openstreetmap_nearest_place"

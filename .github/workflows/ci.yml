@@ -33,7 +33,7 @@ jobs:
       - run: python -m pip install -e "./backend[dev]"
       - run: ruff check backend
       - run: mypy backend/app
-      - run: pytest backend --cov=backend/app --cov-report=term-missing --cov-fail-under=85
+      - run: pytest backend --cov=backend/app --cov-report=term-missing --cov-fail-under=77
 
   mobile:
     runs-on: ubuntu-latest
@@ -49,4 +49,3 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
-

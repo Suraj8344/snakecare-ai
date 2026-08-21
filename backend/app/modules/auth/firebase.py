@@ -92,7 +92,7 @@ class FirebaseIdentityVerifier:
         if not self._project_id:
             raise ValueError("Firebase project ID is required")
         claims = dict(
-            google_id_token.verify_firebase_token(
+            google_id_token.verify_firebase_token(  # type: ignore[no-untyped-call]
                 token,
                 GoogleAuthRequest(),
                 audience=self._project_id,

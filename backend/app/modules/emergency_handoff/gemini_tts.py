@@ -55,7 +55,7 @@ class GeminiSpeechSynthesizer:
             "the transcript. Do not add, remove, paraphrase, or explain any words.\n\n"
             f"TRANSCRIPT:\n{approved_text.strip()}"
         )
-        interactions_payload = {
+        interactions_payload: dict[str, object] = {
             "model": self._model,
             "input": prompt,
             "response_format": {"type": "audio"},
@@ -63,7 +63,7 @@ class GeminiSpeechSynthesizer:
                 "speech_config": [{"voice": self._voice}],
             },
         }
-        generate_content_payload = {
+        generate_content_payload: dict[str, object] = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
                 "responseModalities": ["AUDIO"],

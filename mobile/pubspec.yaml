@@ -1,7 +1,7 @@
 name: snakecare_mobile
 description: SnakeCare AI mobile foundation.
 publish_to: none
-version: 0.1.0+1
+version: 0.1.4+5
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -16,6 +16,7 @@ dependencies:
   firebase_core: ^3.6.0
   firebase_auth: ^5.3.1
   firebase_messaging: ^15.1.3
+  google_sign_in: ^7.2.0
   file_selector: ^1.1.0
   flutter_riverpod: ^2.6.1
   flutter_secure_storage: ^9.2.2

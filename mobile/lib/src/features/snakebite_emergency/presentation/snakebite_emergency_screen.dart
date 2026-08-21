@@ -46,7 +46,7 @@ class SnakebiteEmergencyScreen extends ConsumerStatefulWidget {
 
 class _SnakebiteEmergencyScreenState
     extends ConsumerState<SnakebiteEmergencyScreen> {
-  static const _firstAidVideoId = 'q9rsEiQxSn8';
+  static const _firstAidVideoId = 'fd42XW9RJeE';
   final selectedSymptoms = <String>{};
   final age = TextEditingController();
   final notes = TextEditingController();
@@ -122,229 +122,255 @@ class _SnakebiteEmergencyScreenState
             key: const Key('snakebite_form_scroll'),
             padding: const EdgeInsets.fromLTRB(16, 16, 24, 32),
             children: [
-            _EmergencyBanner(onCall: _callEmergencyServices),
-            const SizedBox(height: 16),
-            const _FirstAidCard(),
-            const SizedBox(height: 16),
-            if (videoController != null)
-              _EmergencyVideoCard(
-                controller: videoController!,
-                onContinue: _scrollToSymptoms,
-              ),
-            const SizedBox(height: 20),
-            KeyedSubtree(
-              key: symptomsKey,
-              child: _Section(
-                title: '1. ${context.tr('symptoms_now')}',
-                subtitle: context.tr('select_symptoms'),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: symptomLabels.entries
-                      .map(
-                        (entry) => FilterChip(
-                          label: Text(entry.value),
-                          selected: selectedSymptoms.contains(entry.key),
-                          onSelected: (selected) =>
-                              _changeSymptom(entry.key, selected),
-                        ),
-                      )
-                      .toList(),
+              _EmergencyBanner(onCall: _callEmergencyServices),
+              const SizedBox(height: 16),
+              const _FirstAidCard(),
+              const SizedBox(height: 16),
+              if (videoController != null)
+                _EmergencyVideoCard(
+                  controller: videoController!,
+                  videoId: _firstAidVideoId,
+                  onContinue: _scrollToSymptoms,
+                ),
+              const SizedBox(height: 20),
+              KeyedSubtree(
+                key: symptomsKey,
+                child: _Section(
+                  title: '1. ${context.tr('symptoms_now')}',
+                  subtitle: context.tr('select_symptoms'),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: symptomLabels.entries
+                        .map(
+                          (entry) => FilterChip(
+                            label: Text(entry.value),
+                            selected: selectedSymptoms.contains(entry.key),
+                            onSelected: (selected) =>
+                                _changeSymptom(entry.key, selected),
+                          ),
+                        )
+                        .toList(),
+                  ),
                 ),
               ),
-            ),
-            _Section(
-              title: '2. Describe what happened',
-              subtitle:
-                  'Voice uses your device speech service. Review it before sending; SnakeCare sends only the transcript.',
-              child: Column(
-                children: [
-                  TextField(
-                    controller: voiceTranscript,
-                    minLines: 2,
-                    maxLines: 4,
-                    decoration: const InputDecoration(
-                      labelText: 'Voice transcript or typed description',
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed: _toggleVoice,
-                    icon: Icon(listening ? Icons.stop : Icons.mic_none),
-                    label: Text(
-                      listening ? 'Stop listening' : 'Start voice input',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: notes,
-                    minLines: 2,
-                    maxLines: 4,
-                    decoration: const InputDecoration(
-                      labelText: 'Other symptoms or circumstances',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            _Section(
-              title: '3. Bite details and photo',
-              subtitle:
-                  'A photo is optional and will not be used to identify a snake.',
-              child: Column(
-                children: [
-                  DropdownButtonFormField<String>(
-                    initialValue: biteSite,
-                    decoration: const InputDecoration(
-                      labelText: 'Bite location on body',
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'unknown',
-                        child: Text('Unknown'),
-                      ),
-                      DropdownMenuItem(value: 'hand', child: Text('Hand')),
-                      DropdownMenuItem(value: 'arm', child: Text('Arm')),
-                      DropdownMenuItem(value: 'foot', child: Text('Foot')),
-                      DropdownMenuItem(value: 'leg', child: Text('Leg')),
-                      DropdownMenuItem(
-                        value: 'head_or_neck',
-                        child: Text('Head or neck'),
-                      ),
-                      DropdownMenuItem(value: 'torso', child: Text('Torso')),
-                    ],
-                    onChanged: (value) => biteSite = value ?? 'unknown',
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: age,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Patient age (optional)',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (photoBytes != null) ...[
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.memory(
-                        photoBytes!,
-                        height: 180,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
+              _Section(
+                title: '2. Describe what happened',
+                subtitle:
+                    'Voice uses your device speech service. Review it before sending; SnakeCare sends only the transcript.',
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: voiceTranscript,
+                      minLines: 2,
+                      maxLines: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'Voice transcript or typed description',
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(photoFilename ?? 'Selected photo'),
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: _toggleVoice,
+                      icon: Icon(listening ? Icons.stop : Icons.mic_none),
+                      label: Text(
+                        listening ? 'Stop listening' : 'Start voice input',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: notes,
+                      minLines: 2,
+                      maxLines: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'Other symptoms or circumstances',
+                      ),
+                    ),
                   ],
-                  OutlinedButton.icon(
-                    onPressed: _pickPhoto,
-                    icon: const Icon(Icons.add_a_photo_outlined),
-                    label: Text(
-                      photoBytes == null ? 'Upload photo' : 'Change photo',
+                ),
+              ),
+              _Section(
+                title: '3. Bite details and photo',
+                subtitle:
+                    'A photo is optional and will not be used to identify a snake.',
+                child: Column(
+                  children: [
+                    DropdownButtonFormField<String>(
+                      initialValue: biteSite,
+                      decoration: const InputDecoration(
+                        labelText: 'Bite location on body',
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'unknown',
+                          child: Text('Unknown'),
+                        ),
+                        DropdownMenuItem(value: 'hand', child: Text('Hand')),
+                        DropdownMenuItem(value: 'arm', child: Text('Arm')),
+                        DropdownMenuItem(value: 'foot', child: Text('Foot')),
+                        DropdownMenuItem(value: 'leg', child: Text('Leg')),
+                        DropdownMenuItem(
+                          value: 'head_or_neck',
+                          child: Text('Head or neck'),
+                        ),
+                        DropdownMenuItem(value: 'torso', child: Text('Torso')),
+                      ],
+                      onChanged: (value) => biteSite = value ?? 'unknown',
                     ),
-                  ),
-                ],
-              ),
-            ),
-            _Section(
-              title: '4. Current location',
-              subtitle:
-                  'Optional. Used only with this private emergency record.',
-              child: Column(
-                children: [
-                  if (position != null)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.location_on_outlined),
-                      title: const Text('Location captured'),
-                      subtitle: Text(
-                        '${position!.latitude.toStringAsFixed(5)}, '
-                        '${position!.longitude.toStringAsFixed(5)} '
-                        '(±${position!.accuracy.toStringAsFixed(0)} m)',
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: age,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Patient age (optional)',
                       ),
                     ),
-                  OutlinedButton.icon(
-                    onPressed: _captureLocation,
-                    icon: const Icon(Icons.my_location),
-                    label: const Text('Use current location'),
-                  ),
-                ],
-              ),
-            ),
-            _Section(
-              title: '5. Vitals (optional)',
-              subtitle:
-                  'Enter measured values only. Leave unknown values blank.',
-              child: Column(
-                children: [
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: [
-                      _VitalField(controller: pulse, label: 'Pulse / min'),
-                      _VitalField(
-                        controller: breathingRate,
-                        label: 'Breaths / min',
+                    const SizedBox(height: 12),
+                    if (photoBytes != null) ...[
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.memory(
+                          photoBytes!,
+                          height: 180,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
                       ),
-                      _VitalField(controller: oxygen, label: 'Oxygen %'),
-                      _VitalField(controller: systolic, label: 'Systolic BP'),
-                      _VitalField(controller: diastolic, label: 'Diastolic BP'),
-                      _VitalField(
-                        controller: temperature,
-                        label: 'Temperature °C',
-                        decimal: true,
+                      const SizedBox(height: 8),
+                      Text(photoFilename ?? 'Selected photo'),
+                      const SizedBox(height: 6),
+                      const Row(
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.green),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Ready to upload when you tap Assess below.',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ],
                       ),
+                      const SizedBox(height: 8),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: consciousness,
-                    decoration:
-                        const InputDecoration(labelText: 'Responsiveness'),
-                    items: const [
-                      DropdownMenuItem(value: 'alert', child: Text('Alert')),
-                      DropdownMenuItem(
-                        value: 'responds_to_voice',
-                        child: Text('Responds to voice'),
+                    OutlinedButton.icon(
+                      onPressed: _pickPhoto,
+                      icon: const Icon(Icons.add_a_photo_outlined),
+                      label: Text(
+                        photoBytes == null
+                            ? 'Select photo to upload'
+                            : 'Change photo',
                       ),
-                      DropdownMenuItem(
-                        value: 'responds_to_pain',
-                        child: Text('Responds only to pain'),
+                    ),
+                  ],
+                ),
+              ),
+              _Section(
+                title: '4. Current location',
+                subtitle:
+                    'Optional. Used only with this private emergency record.',
+                child: Column(
+                  children: [
+                    if (position != null)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.location_on_outlined),
+                        title: const Text('Location captured'),
+                        subtitle: Text(
+                          '${position!.latitude.toStringAsFixed(5)}, '
+                          '${position!.longitude.toStringAsFixed(5)} '
+                          '(±${position!.accuracy.toStringAsFixed(0)} m)',
+                        ),
                       ),
-                      DropdownMenuItem(
-                        value: 'unresponsive',
-                        child: Text('Unresponsive'),
-                      ),
-                    ],
-                    onChanged: (value) => consciousness = value ?? 'alert',
-                  ),
-                ],
+                    OutlinedButton.icon(
+                      onPressed: _captureLocation,
+                      icon: const Icon(Icons.my_location),
+                      label: const Text('Use current location'),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            FilledButton.icon(
-              onPressed: submitting ? null : _submit,
-              style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.error,
-                foregroundColor: Theme.of(context).colorScheme.onError,
-                minimumSize: const Size.fromHeight(54),
+              _Section(
+                title: '5. Vitals (optional)',
+                subtitle:
+                    'Enter measured values only. Leave unknown values blank.',
+                child: Column(
+                  children: [
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        _VitalField(controller: pulse, label: 'Pulse / min'),
+                        _VitalField(
+                          controller: breathingRate,
+                          label: 'Breaths / min',
+                        ),
+                        _VitalField(controller: oxygen, label: 'Oxygen %'),
+                        _VitalField(controller: systolic, label: 'Systolic BP'),
+                        _VitalField(
+                          controller: diastolic,
+                          label: 'Diastolic BP',
+                        ),
+                        _VitalField(
+                          controller: temperature,
+                          label: 'Temperature °C',
+                          decimal: true,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: consciousness,
+                      decoration:
+                          const InputDecoration(labelText: 'Responsiveness'),
+                      items: const [
+                        DropdownMenuItem(value: 'alert', child: Text('Alert')),
+                        DropdownMenuItem(
+                          value: 'responds_to_voice',
+                          child: Text('Responds to voice'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'responds_to_pain',
+                          child: Text('Responds only to pain'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'unresponsive',
+                          child: Text('Unresponsive'),
+                        ),
+                      ],
+                      onChanged: (value) => consciousness = value ?? 'alert',
+                    ),
+                  ],
+                ),
               ),
-              icon: submitting
-                  ? const SizedBox.square(
-                      dimension: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.health_and_safety_outlined),
-              label: Text(
-                submitting ? 'Assessing emergency…' : context.tr('assess_save'),
+              const SizedBox(height: 8),
+              FilledButton.icon(
+                onPressed: submitting ? null : _submit,
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                  foregroundColor: Theme.of(context).colorScheme.onError,
+                  minimumSize: const Size.fromHeight(54),
+                ),
+                icon: submitting
+                    ? const SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.health_and_safety_outlined),
+                label: Text(
+                  submitting
+                      ? (photoBytes == null
+                          ? 'Assessing emergency…'
+                          : 'Uploading photo and assessing…')
+                      : (photoBytes == null
+                          ? context.tr('assess_save')
+                          : 'Assess and upload photo'),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'This decision support cannot diagnose envenoming or determine whether a bite is safe.',
-              textAlign: TextAlign.center,
-            ),
+              const SizedBox(height: 12),
+              const Text(
+                'This decision support cannot diagnose envenoming or determine whether a bite is safe.',
+                textAlign: TextAlign.center,
+              ),
             ],
           ),
         ),
@@ -494,6 +520,11 @@ class _SnakebiteEmergencyScreenState
                 photoFilename: photoFilename,
               );
       if (!mounted) return;
+      if (photoBytes != null && !result.photoAvailable) {
+        _message(
+          'The assessment was saved, but the photo was not accepted. You can continue without it.',
+        );
+      }
       await Navigator.of(context).push<void>(
         MaterialPageRoute(
           builder: (_) => SnakebiteAssessmentScreen(
@@ -600,6 +631,18 @@ class SnakebiteAssessmentScreen extends StatelessWidget {
               subtitle: SelectableText(assessment.id),
             ),
           ),
+          if (assessment.photoAvailable) ...[
+            const SizedBox(height: 12),
+            const Card(
+              child: ListTile(
+                leading: Icon(Icons.cloud_done_outlined, color: Colors.green),
+                title: Text('Photo uploaded securely'),
+                subtitle: Text(
+                  'The selected image is attached to this private emergency record.',
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () => Navigator.of(context).push(
@@ -712,9 +755,11 @@ class _FirstAidCard extends StatelessWidget {
 class _EmergencyVideoCard extends StatelessWidget {
   const _EmergencyVideoCard({
     required this.controller,
+    required this.videoId,
     required this.onContinue,
   });
   final YoutubePlayerController controller;
+  final String videoId;
   final VoidCallback onContinue;
 
   @override
@@ -743,7 +788,16 @@ class _EmergencyVideoCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               const Text(
-                'First-aid education video. Call emergency services immediately; video guidance does not replace medical care.',
+                'Snakebite first-aid education based on WHO emergency-care standards. Call emergency services immediately; video guidance does not replace medical care.',
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () => launchUrl(
+                  Uri.parse('https://www.youtube.com/watch?v=$videoId'),
+                  mode: LaunchMode.externalApplication,
+                ),
+                icon: const Icon(Icons.open_in_new),
+                label: const Text('Open video in YouTube'),
               ),
               const SizedBox(height: 10),
               FilledButton.icon(
