@@ -12,6 +12,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Welcome to SnakeCare'), findsOneWidget);
+    expect(find.text('Patient'), findsOneWidget);
+    expect(find.text('Hospital Authority'), findsOneWidget);
+    expect(find.text('Government Authority'), findsOneWidget);
     expect(
       find.textContaining('Authentication setup is required'),
       findsOneWidget,
@@ -46,6 +49,39 @@ void main() {
       find.text('Hospital Operations (restricted)'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('does not grant an authority interface from portal selection', (
+    tester,
+  ) async {
+    const session = AuthSession(
+      accessToken: 'test-access-token',
+      refreshToken: 'test-refresh-token',
+      user: AuthUser(
+        id: 'patient-1',
+        role: UserRole.patient,
+        email: 'patient@example.com',
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: RoleAccessMismatchScreen(
+            session: session,
+            requestedRole: UserRole.hospitalAdmin,
+            onUseAssignedRole: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Hospital Authority access is not assigned'),
+      findsOneWidget,
+    );
+    expect(find.text('Open Patient interface'), findsOneWidget);
   });
 
   testWidgets('shows staff management to government administrators', (
