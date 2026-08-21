@@ -57,36 +57,73 @@ String _friendlyAuthMessage(Object error) {
       .replaceFirst('Exception: ', '');
 }
 
-class AuthGate extends ConsumerWidget {
+class AuthGate extends ConsumerStatefulWidget {
   const AuthGate({super.key, this.modulePreview, this.antivenomToken});
 
   final String? modulePreview;
   final String? antivenomToken;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final requestedModule = modulePreview ?? Uri.base.queryParameters['module'];
+  ConsumerState<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends ConsumerState<AuthGate> {
+  UserRole? _requestedRole;
+
+  @override
+  Widget build(BuildContext context) {
+    final requestedModule =
+        widget.modulePreview ?? Uri.base.queryParameters['module'];
     final requestedAntivenomToken =
-        antivenomToken ?? Uri.base.queryParameters['antivenom_token'];
+        widget.antivenomToken ?? Uri.base.queryParameters['antivenom_token'];
     final auth = ref.watch(authControllerProvider);
     return auth.when(
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (error, _) => LoginScreen(message: _friendlyAuthMessage(error)),
-      data: (session) => session == null
-          ? const LoginScreen()
-          : RoleHomeScreen(
-              session: session,
-              modulePreview: requestedModule,
-              antivenomToken: requestedAntivenomToken,
+      error: (error, _) => LoginScreen(
+        message: _friendlyAuthMessage(error),
+        selectedRole: _requestedRole,
+        onRoleSelected: _selectRole,
+      ),
+      data: (session) {
+        if (session == null) {
+          return LoginScreen(
+            selectedRole: _requestedRole,
+            onRoleSelected: _selectRole,
+          );
+        }
+        if (_requestedRole case final requested?
+            when requested != session.user.role) {
+          return RoleAccessMismatchScreen(
+            session: session,
+            requestedRole: requested,
+            onUseAssignedRole: () => setState(
+              () => _requestedRole = session.user.role,
             ),
+          );
+        }
+        return RoleHomeScreen(
+          session: session,
+          modulePreview: requestedModule,
+          antivenomToken: requestedAntivenomToken,
+        );
+      },
     );
   }
+
+  void _selectRole(UserRole role) => setState(() => _requestedRole = role);
 }
 
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key, this.message});
+  const LoginScreen({
+    required this.selectedRole,
+    required this.onRoleSelected,
+    super.key,
+    this.message,
+  });
   final String? message;
+  final UserRole? selectedRole;
+  final ValueChanged<UserRole> onRoleSelected;
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -170,9 +207,54 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                           const SizedBox(height: 6),
                           const Text(
-                            'Secure access for patients and emergency teams',
+                            'Secure access for patients and authorized teams',
                             textAlign: TextAlign.center,
                             style: TextStyle(color: Color(0xFF5C6870)),
+                          ),
+                          const SizedBox(height: 18),
+                          Text(
+                            'Choose your interface',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _portalChip(
+                                role: UserRole.patient,
+                                label: 'Patient',
+                                icon: Icons.person_outline,
+                              ),
+                              _portalChip(
+                                role: UserRole.hospitalAdmin,
+                                label: 'Hospital Authority',
+                                icon: Icons.local_hospital_outlined,
+                              ),
+                              _portalChip(
+                                role: UserRole.governmentAdmin,
+                                label: 'Government Authority',
+                                icon: Icons.account_balance_outlined,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            widget.selectedRole == null
+                                ? 'Select an interface before signing in.'
+                                : widget.selectedRole == UserRole.patient
+                                    ? 'Patient accounts can register directly.'
+                                    : 'Authority access requires a verified role assigned by SnakeCare.',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Color(0xFF5C6870),
+                              fontSize: 13,
+                            ),
                           ),
                           if (!AppConfig.firebaseEnabled) ...[
                             const SizedBox(height: 18),
@@ -239,7 +321,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                           const SizedBox(height: 18),
                           FilledButton(
-                            onPressed: AppConfig.firebaseEnabled
+                            onPressed: AppConfig.firebaseEnabled &&
+                                    widget.selectedRole != null
                                 ? () => ref
                                     .read(authControllerProvider.notifier)
                                     .email(
@@ -251,18 +334,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             child: Text(
                               _register
                                   ? 'Create patient account'
-                                  : 'Sign in securely',
+                                  : widget.selectedRole == null
+                                      ? 'Select an interface'
+                                      : 'Sign in to ${_roleLabel(widget.selectedRole!)}',
                             ),
                           ),
-                          TextButton(
-                            onPressed: () =>
-                                setState(() => _register = !_register),
-                            child: Text(
-                              _register
-                                  ? 'Already registered? Sign in'
-                                  : 'New patient? Create an account',
+                          if (widget.selectedRole == UserRole.patient)
+                            TextButton(
+                              onPressed: () =>
+                                  setState(() => _register = !_register),
+                              child: Text(
+                                _register
+                                    ? 'Already registered? Sign in'
+                                    : 'New patient? Create an account',
+                              ),
                             ),
-                          ),
                           if (!_register)
                             TextButton(
                               onPressed: AppConfig.firebaseEnabled
@@ -272,7 +358,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           const Divider(height: 30),
                           OutlinedButton.icon(
-                            onPressed: AppConfig.firebaseEnabled
+                            onPressed: AppConfig.firebaseEnabled &&
+                                    widget.selectedRole != null
                                 ? ref
                                     .read(authControllerProvider.notifier)
                                     .google
@@ -282,7 +369,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                           const SizedBox(height: 12),
                           OutlinedButton.icon(
-                            onPressed: AppConfig.firebaseEnabled
+                            onPressed: AppConfig.firebaseEnabled &&
+                                    widget.selectedRole != null
                                 ? _showPhoneDialog
                                 : null,
                             icon: const Icon(Icons.phone_outlined),
@@ -290,7 +378,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                           const SizedBox(height: 12),
                           const Text(
-                            'Roles are verified by SnakeCare administrators. New accounts begin as Patient.',
+                            'Selecting an interface does not grant authority. New accounts begin as Patient; Government administrators approve staff roles.',
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 18),
@@ -326,6 +414,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ),
     );
   }
+
+  Widget _portalChip({
+    required UserRole role,
+    required String label,
+    required IconData icon,
+  }) =>
+      ChoiceChip(
+        selected: widget.selectedRole == role,
+        onSelected: (_) {
+          if (role != UserRole.patient && _register) {
+            setState(() => _register = false);
+          }
+          widget.onRoleSelected(role);
+        },
+        avatar: Icon(icon, size: 18),
+        label: Text(label),
+      );
 
   Future<void> _showPhoneDialog() async {
     final phone = TextEditingController();
@@ -404,6 +509,83 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 }
+
+class RoleAccessMismatchScreen extends ConsumerWidget {
+  const RoleAccessMismatchScreen({
+    required this.session,
+    required this.requestedRole,
+    required this.onUseAssignedRole,
+    super.key,
+  });
+
+  final AuthSession session;
+  final UserRole requestedRole;
+  final VoidCallback onUseAssignedRole;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => Scaffold(
+        appBar: AppBar(title: const Text('Interface access check')),
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.admin_panel_settings_outlined,
+                          size: 56,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          '${_roleLabel(requestedRole)} access is not assigned',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'This verified account is assigned to the ${_roleLabel(session.user.role)} interface. '
+                          'A Government Authority administrator must approve Hospital Authority roles.',
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 20),
+                        FilledButton.icon(
+                          onPressed: onUseAssignedRole,
+                          icon: const Icon(Icons.arrow_forward),
+                          label: Text(
+                            'Open ${_roleLabel(session.user.role)} interface',
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton.icon(
+                          onPressed:
+                              ref.read(authControllerProvider.notifier).logout,
+                          icon: const Icon(Icons.logout),
+                          label: const Text('Sign in with another account'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+}
+
+String _roleLabel(UserRole role) => switch (role) {
+      UserRole.patient => 'Patient',
+      UserRole.doctor => 'Doctor',
+      UserRole.hospitalAdmin => 'Hospital Authority',
+      UserRole.governmentAdmin => 'Government Authority',
+    };
 
 class RoleHomeScreen extends ConsumerWidget {
   const RoleHomeScreen({
