@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:snakecare_mobile/src/core/config/app_config.dart';
 import 'package:snakecare_mobile/src/core/localization/app_localizations.dart';
+import 'package:snakecare_mobile/src/features/auth/data/auth_repository.dart';
 import 'package:snakecare_mobile/src/features/auth/domain/auth_session.dart';
 import 'package:snakecare_mobile/src/features/auth/presentation/auth_controller.dart';
 import 'package:snakecare_mobile/src/features/auth/presentation/user_management_screen.dart';
@@ -15,12 +17,39 @@ import 'package:snakecare_mobile/src/features/snakebite_emergency/presentation/s
 import 'package:snakecare_mobile/src/features/system_status/presentation/system_status_screen.dart';
 
 String _friendlyAuthMessage(Object error) {
+  if (error is FirebaseAuthException) {
+    return switch (error.code) {
+      'invalid-credential' ||
+      'wrong-password' ||
+      'user-not-found' =>
+        'The email address or password is incorrect.',
+      'email-already-in-use' =>
+        'An account already exists for this email. Sign in or reset the password.',
+      'weak-password' => 'Use a stronger password with at least 6 characters.',
+      'invalid-email' => 'Enter a valid email address.',
+      'too-many-requests' =>
+        'Too many attempts were made. Wait a few minutes, then try again.',
+      'network-request-failed' =>
+        'Authentication could not reach the network. Check your connection and try again.',
+      'invalid-verification-code' =>
+        'That verification code is incorrect. Check the SMS and try again.',
+      'session-expired' => 'The verification code expired. Request a new code.',
+      'quota-exceeded' =>
+        'The SMS verification limit has been reached. Try again later or use email sign-in.',
+      'user-disabled' =>
+        'This account has been disabled. Contact a SnakeCare administrator.',
+      _ => error.message ?? 'Authentication failed. Please try again.',
+    };
+  }
   final message = error.toString();
+  if (message.contains('canceled') || message.contains('cancelled')) {
+    return 'Google sign-in was cancelled.';
+  }
   if (message.contains('DioException') ||
       message.contains('XMLHttpRequest') ||
       message.contains('CORS')) {
-    return 'Firebase sign-in succeeded, but the SnakeCare API is currently offline. '
-        'You can still open Emergency Tools below. Start the local API to use protected account features.';
+    return 'The secure SnakeCare service could not be reached. Check your connection and try again. '
+        'Emergency tools remain available offline.';
   }
   return message
       .replaceFirst('Bad state: ', '')
@@ -234,6 +263,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   : 'New patient? Create an account',
                             ),
                           ),
+                          if (!_register)
+                            TextButton(
+                              onPressed: AppConfig.firebaseEnabled
+                                  ? _sendPasswordReset
+                                  : null,
+                              child: const Text('Forgot password?'),
+                            ),
                           const Divider(height: 30),
                           OutlinedButton.icon(
                             onPressed: AppConfig.firebaseEnabled
@@ -315,8 +351,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
     phone.dispose();
     if (value == null || !mounted) return;
-    final verificationId =
-        await ref.read(authControllerProvider.notifier).sendPhoneCode(value);
+    late final PhoneSignInChallenge challenge;
+    try {
+      challenge =
+          await ref.read(authControllerProvider.notifier).sendPhoneCode(value);
+    } catch (error) {
+      if (mounted) _showMessage(_friendlyAuthMessage(error));
+      return;
+    }
+    if (challenge.isCompleted || !mounted) return;
+    final verificationId = challenge.verificationId!;
     if (!mounted) return;
     final code = TextEditingController();
     final otp = await showDialog<String>(
@@ -339,6 +383,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           .read(authControllerProvider.notifier)
           .confirmPhone(verificationId, otp);
     }
+  }
+
+  Future<void> _sendPasswordReset() async {
+    try {
+      await ref
+          .read(authControllerProvider.notifier)
+          .sendPasswordReset(_email.text);
+      if (mounted) {
+        _showMessage('Password reset email sent. Check your inbox.');
+      }
+    } catch (error) {
+      if (mounted) _showMessage(_friendlyAuthMessage(error));
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 }
 

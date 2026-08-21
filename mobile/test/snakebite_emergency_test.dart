@@ -111,11 +111,11 @@ void main() {
     );
     expect(find.text('Start voice input'), findsOneWidget);
     await tester.scrollUntilVisible(
-      find.text('Upload photo'),
+      find.text('Select photo to upload'),
       350,
       scrollable: page,
     );
-    expect(find.text('Upload photo'), findsOneWidget);
+    expect(find.text('Select photo to upload'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Use current location'),
       350,
