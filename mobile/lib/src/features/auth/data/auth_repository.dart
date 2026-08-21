@@ -77,7 +77,7 @@ class AuthRepository {
       try {
         final credential =
             await FirebaseAuth.instance.signInWithPopup(provider);
-        return _exchange(await credential.user!.getIdToken(true));
+        return await _exchange(await credential.user!.getIdToken(true));
       } on FirebaseAuthException catch (error) {
         if (error.code == 'popup-blocked' ||
             error.code == 'popup-closed-by-user' ||
