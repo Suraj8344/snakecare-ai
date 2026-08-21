@@ -5,6 +5,9 @@ services:
     plan: free
     dockerfilePath: ./backend/Dockerfile
     dockerContext: .
+    dockerCommand: >-
+      sh -c 'alembic upgrade head && python scripts/seed_review_data.py &&
+      exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-10000} --proxy-headers'
     healthCheckPath: /api/v1/ready
     autoDeployTrigger: commit
     envVars:
@@ -25,7 +28,7 @@ services:
       - key: SNAKECARE_GEMINI_ENABLED
         value: "false"
       - key: SNAKECARE_CORS_ORIGINS
-        value: "[]"
+        value: '["http://127.0.0.1:8768","http://localhost:8768"]'
       - key: SNAKECARE_REPORT_STORAGE_PATH
         value: /tmp/snakecare/reports
       - key: SNAKECARE_SNAKEBITE_PHOTO_STORAGE_PATH
