@@ -92,6 +92,8 @@ void main() {
     );
 
     expect(find.text('Edit Medical Passport'), findsOneWidget);
+    expect(find.text('Save information'), findsOneWidget);
+    expect(find.byKey(const Key('passport_save_button')), findsOneWidget);
     expect(find.text('Blood group'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Insurance details'),

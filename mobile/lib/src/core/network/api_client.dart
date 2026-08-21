@@ -6,8 +6,9 @@ final dioProvider = Provider<Dio>((Ref ref) {
   return Dio(
     BaseOptions(
       baseUrl: AppConfig.apiBaseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
+      connectTimeout: const Duration(seconds: 20),
+      // Render's free service may need time to wake after inactivity.
+      receiveTimeout: const Duration(seconds: 75),
       headers: <String, String>{'Accept': 'application/json'},
     ),
   );

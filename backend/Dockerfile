@@ -16,5 +16,5 @@ COPY backend/alembic.ini ./alembic.ini
 COPY backend/alembic ./alembic
 COPY backend/scripts ./scripts
 USER snakecare
-EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+EXPOSE 10000
+CMD ["sh", "scripts/start_render.sh"]

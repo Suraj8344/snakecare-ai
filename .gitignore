@@ -17,6 +17,7 @@ mobile/.dart_tool/
 mobile/.localappdata/
 mobile/.gradle-user/
 mobile/.android-user/
+mobile/.android-sdk/
 mobile/.jdk*/
 mobile/.jdk*.zip
 mobile/.toolchain-test/

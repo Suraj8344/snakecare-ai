@@ -41,15 +41,20 @@ class AuthSession {
     required this.accessToken,
     required this.refreshToken,
     required this.user,
+    this.accessExpiresAt,
   });
 
   factory AuthSession.fromJson(Map<String, dynamic> json) => AuthSession(
         accessToken: json['access_token'] as String,
         refreshToken: json['refresh_token'] as String,
+        accessExpiresAt: json['access_expires_at'] == null
+            ? null
+            : DateTime.parse(json['access_expires_at'] as String).toLocal(),
         user: AuthUser.fromJson(json['user'] as Map<String, dynamic>),
       );
 
   final String accessToken;
   final String refreshToken;
+  final DateTime? accessExpiresAt;
   final AuthUser user;
 }
