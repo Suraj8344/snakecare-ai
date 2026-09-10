@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:snakecare_mobile/src/features/ambulance_tracking/tracking_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:snakecare_mobile/src/core/config/app_config.dart';
@@ -11,6 +13,7 @@ import 'package:snakecare_mobile/src/features/emergency_handoff/presentation/eme
 import 'package:snakecare_mobile/src/features/hospital_coordination/presentation/hospital_coordination_landing_screen.dart';
 import 'package:snakecare_mobile/src/features/hospital_dashboard/presentation/hospital_dashboard_screen.dart';
 import 'package:snakecare_mobile/src/features/medical_passport/presentation/medical_passport_screen.dart';
+import 'package:snakecare_mobile/src/features/medical_passport/presentation/clinical_history_screen.dart';
 import 'package:snakecare_mobile/src/features/medical_reports/presentation/medical_reports_screen.dart';
 import 'package:snakecare_mobile/src/features/offline_resilience/presentation/offline_resilience_screen.dart';
 import 'package:snakecare_mobile/src/features/snakebite_emergency/presentation/snakebite_emergency_screen.dart';
@@ -69,6 +72,7 @@ class AuthGate extends ConsumerStatefulWidget {
 
 class _AuthGateState extends ConsumerState<AuthGate> {
   UserRole? _requestedRole;
+  bool _driverPortal = false;
 
   @override
   Widget build(BuildContext context) {
@@ -84,12 +88,16 @@ class _AuthGateState extends ConsumerState<AuthGate> {
         message: _friendlyAuthMessage(error),
         selectedRole: _requestedRole,
         onRoleSelected: _selectRole,
+        driverPortal: _driverPortal,
+        onDriverSelected: _selectDriver,
       ),
       data: (session) {
         if (session == null) {
           return LoginScreen(
             selectedRole: _requestedRole,
             onRoleSelected: _selectRole,
+            driverPortal: _driverPortal,
+            onDriverSelected: _selectDriver,
           );
         }
         if (_requestedRole case final requested?
@@ -102,16 +110,30 @@ class _AuthGateState extends ConsumerState<AuthGate> {
             ),
           );
         }
+        if (AppConfig.staffWebOnly &&
+            session.user.role != UserRole.hospitalAdmin &&
+            session.user.role != UserRole.governmentAdmin) {
+          return StaffWebAccessScreen(session: session);
+        }
         return RoleHomeScreen(
           session: session,
           modulePreview: requestedModule,
           antivenomToken: requestedAntivenomToken,
+          driverPortal: _driverPortal && session.user.role == UserRole.patient,
         );
       },
     );
   }
 
-  void _selectRole(UserRole role) => setState(() => _requestedRole = role);
+  void _selectRole(UserRole role) => setState(() {
+        _requestedRole = role;
+        _driverPortal = false;
+      });
+
+  void _selectDriver() => setState(() {
+        _requestedRole = UserRole.patient;
+        _driverPortal = true;
+      });
 }
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -120,10 +142,14 @@ class LoginScreen extends ConsumerStatefulWidget {
     required this.onRoleSelected,
     super.key,
     this.message,
+    this.driverPortal = false,
+    this.onDriverSelected,
   });
   final String? message;
   final UserRole? selectedRole;
   final ValueChanged<UserRole> onRoleSelected;
+  final bool driverPortal;
+  final VoidCallback? onDriverSelected;
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -226,11 +252,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             spacing: 8,
                             runSpacing: 8,
                             children: [
-                              _portalChip(
-                                role: UserRole.patient,
-                                label: 'Patient',
-                                icon: Icons.person_outline,
-                              ),
+                              if (!AppConfig.staffWebOnly)
+                                ChoiceChip(
+                                  label: const Text('Ambulance Driver'),
+                                  avatar:
+                                      const Icon(Icons.local_shipping_outlined),
+                                  selected: widget.driverPortal,
+                                  onSelected: widget.onDriverSelected == null
+                                      ? null
+                                      : (_) => widget.onDriverSelected!(),
+                                ),
+                              if (!AppConfig.staffWebOnly)
+                                _portalChip(
+                                  role: UserRole.doctor,
+                                  label: 'Doctor',
+                                  icon: Icons.medical_services_outlined,
+                                ),
+                              if (!AppConfig.staffWebOnly)
+                                _portalChip(
+                                  role: UserRole.patient,
+                                  label: 'Patient',
+                                  icon: Icons.person_outline,
+                                ),
                               _portalChip(
                                 role: UserRole.hospitalAdmin,
                                 label: 'Hospital Authority',
@@ -245,11 +288,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            widget.selectedRole == null
-                                ? 'Select an interface before signing in.'
-                                : widget.selectedRole == UserRole.patient
-                                    ? 'Patient accounts can register directly.'
-                                    : 'Authority access requires a verified role assigned by SnakeCare.',
+                            widget.driverPortal
+                                ? 'Drivers use an individual account and require hospital approval before receiving trips.'
+                                : widget.selectedRole == null
+                                    ? 'Select an interface before signing in.'
+                                    : widget.selectedRole == UserRole.patient
+                                        ? 'Patient accounts can register directly.'
+                                        : 'Authority access requires a verified role assigned by SnakeCare.',
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                               color: Color(0xFF5C6870),
@@ -336,7 +381,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   ? 'Create patient account'
                                   : widget.selectedRole == null
                                       ? 'Select an interface'
-                                      : 'Sign in to ${_roleLabel(widget.selectedRole!)}',
+                                      : widget.driverPortal
+                                          ? 'Sign in to Driver'
+                                          : 'Sign in to ${_roleLabel(widget.selectedRole!)}',
                             ),
                           ),
                           if (widget.selectedRole == UserRole.patient)
@@ -421,7 +468,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     required IconData icon,
   }) =>
       ChoiceChip(
-        selected: widget.selectedRole == role,
+        selected: !widget.driverPortal && widget.selectedRole == role,
         onSelected: (_) {
           if (role != UserRole.patient && _register) {
             setState(() => _register = false);
@@ -580,6 +627,51 @@ class RoleAccessMismatchScreen extends ConsumerWidget {
       );
 }
 
+class StaffWebAccessScreen extends ConsumerWidget {
+  const StaffWebAccessScreen({required this.session, super.key});
+
+  final AuthSession session;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => Scaffold(
+        appBar: AppBar(title: const Text('SnakeCare Authority Portal')),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.admin_panel_settings_outlined, size: 54),
+                    const SizedBox(height: 16),
+                    Text(
+                      'This website is for verified hospital and government authorities.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'The signed-in ${_roleLabel(session.user.role)} account can use the SnakeCare mobile app instead.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+                    FilledButton.icon(
+                      onPressed:
+                          ref.read(authControllerProvider.notifier).logout,
+                      icon: const Icon(Icons.logout),
+                      label: const Text('Sign in with an authority account'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+}
+
 String _roleLabel(UserRole role) => switch (role) {
       UserRole.patient => 'Patient',
       UserRole.doctor => 'Doctor',
@@ -587,33 +679,102 @@ String _roleLabel(UserRole role) => switch (role) {
       UserRole.governmentAdmin => 'Government Authority',
     };
 
+class PatientEmergencyCenter extends StatelessWidget {
+  const PatientEmergencyCenter({required this.accessToken, super.key});
+  final String accessToken;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('Emergency Center')),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 640),
+            child: ListView(
+              padding: const EdgeInsets.all(24),
+              children: [
+                const Text(
+                  'Emergency tools in one place',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                for (final item in <(String, String, Widget)>[
+                  (
+                    'Snakebite emergency',
+                    'Symptoms, voice input and emergency assessment',
+                    SnakebiteEmergencyScreen(accessToken: accessToken)
+                  ),
+                  (
+                    'Offline & low-signal help',
+                    'Saved first aid, SOS contacts and health-card sharing',
+                    const OfflineResilienceScreen()
+                  ),
+                  (
+                    'Find hospitals',
+                    'Hospital information and coordination',
+                    HospitalCoordinationLandingScreen(
+                      accessToken: accessToken,
+                    )
+                  ),
+                  (
+                    'Handoff rehearsal',
+                    'Practice only — does not dispatch emergency services',
+                    EmergencyHandoffScreen(accessToken: accessToken)
+                  ),
+                ])
+                  Card(
+                    child: ListTile(
+                      title: Text(item.$1),
+                      subtitle: Text(item.$2),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => item.$3,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+}
+
 class RoleHomeScreen extends ConsumerWidget {
   const RoleHomeScreen({
     required this.session,
     super.key,
     this.modulePreview,
     this.antivenomToken,
+    this.driverPortal = false,
   });
 
   final AuthSession session;
   final String? modulePreview;
   final String? antivenomToken;
+  final bool driverPortal;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (modulePreview == '6') {
+    if (!driverPortal &&
+        modulePreview == '6' &&
+        session.user.role == UserRole.patient) {
       return HospitalCoordinationLandingScreen(
         accessToken: session.accessToken,
       );
     }
-    if (modulePreview == '7') {
+    if (modulePreview == '7' &&
+        (session.user.role == UserRole.hospitalAdmin ||
+            session.user.role == UserRole.governmentAdmin)) {
       return HospitalDashboardScreen(
         accessToken: session.accessToken,
         role: session.user.role,
         initialQrToken: antivenomToken,
       );
     }
-    if (modulePreview == '8') {
+    if (!driverPortal &&
+        modulePreview == '8' &&
+        session.user.role == UserRole.patient) {
       return EmergencyHandoffScreen(accessToken: session.accessToken);
     }
     final label = switch (session.user.role) {
@@ -630,7 +791,7 @@ class RoleHomeScreen extends ConsumerWidget {
     };
     return Scaffold(
       appBar: AppBar(
-        title: Text(portalTitle),
+        title: Text(driverPortal ? 'Ambulance Driver' : portalTitle),
         actions: [
           IconButton(
             onPressed: ref.read(authControllerProvider.notifier).logout,
@@ -643,169 +804,246 @@ class RoleHomeScreen extends ConsumerWidget {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Center(
-            child: Card(
-              margin: EdgeInsets.zero,
-              child: Padding(
-                padding: const EdgeInsets.all(28),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.verified_user, size: 56),
-                    const SizedBox(height: 12),
-                    Text(
-                      '$label ${context.tr('interface')}',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      session.user.name ??
-                          session.user.email ??
-                          'SnakeCare user',
-                    ),
-                    Chip(label: Text(label)),
-                    if (session.user.hospitalEmployeeId != null)
-                      Chip(
-                        avatar: const Icon(Icons.badge_outlined, size: 18),
-                        label: Text(session.user.hospitalEmployeeId!),
-                      ),
-                    const SizedBox(height: 12),
-                    FilledButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const OfflineResilienceScreen(),
-                        ),
-                      ),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.error,
-                        foregroundColor: Theme.of(context).colorScheme.onError,
-                      ),
-                      icon: const Icon(
-                        Icons.signal_cellular_connected_no_internet_0_bar,
-                      ),
-                      label: Text(context.tr('offline_low_signal')),
-                    ),
-                    const SizedBox(height: 12),
-                    FilledButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => MedicalPassportScreen(
-                            accessToken: session.accessToken,
-                          ),
-                        ),
-                      ),
-                      icon: const Icon(Icons.badge_outlined),
-                      label: Text(context.tr('open_passport')),
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => MedicalReportsScreen(
-                            accessToken: session.accessToken,
-                          ),
-                        ),
-                      ),
-                      icon: const Icon(Icons.folder_copy_outlined),
-                      label: Text(context.tr('medical_reports')),
-                    ),
-                    const SizedBox(height: 12),
-                    FilledButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => SnakebiteEmergencyScreen(
-                            accessToken: session.accessToken,
-                          ),
-                        ),
-                      ),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.error,
-                        foregroundColor: Theme.of(context).colorScheme.onError,
-                      ),
-                      icon: const Icon(Icons.emergency),
-                      label: Text(context.tr('snakebite_emergency')),
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => HospitalCoordinationLandingScreen(
-                            accessToken: session.accessToken,
-                          ),
-                        ),
-                      ),
-                      icon: const Icon(Icons.local_hospital_outlined),
-                      label: Text(context.tr('find_hospitals')),
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => EmergencyHandoffScreen(
-                            accessToken: session.accessToken,
-                          ),
-                        ),
-                      ),
-                      icon: const Icon(Icons.support_agent_outlined),
-                      label: Text(context.tr('handoff')),
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const SystemStatusScreen(),
-                        ),
-                      ),
-                      icon: const Icon(Icons.monitor_heart_outlined),
-                      label: Text(context.tr('system_health')),
-                    ),
-                    const SizedBox(height: 12),
-                    if (session.user.role == UserRole.governmentAdmin) ...[
-                      OutlinedButton.icon(
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => UserManagementScreen(
-                              accessToken: session.accessToken,
-                              currentUserId: session.user.id,
-                            ),
-                          ),
-                        ),
-                        icon: const Icon(Icons.manage_accounts_outlined),
-                        label: Text(context.tr('manage_users')),
+            child: SizedBox(
+              width: 640,
+              child: Card(
+                margin: EdgeInsets.zero,
+                child: Padding(
+                  padding: const EdgeInsets.all(28),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Icon(
+                        Icons.health_and_safety,
+                        size: 56,
+                        color: Color(0xFFE53935),
                       ),
                       const SizedBox(height: 12),
-                    ],
-                    if (session.user.role == UserRole.hospitalAdmin ||
-                        session.user.role == UserRole.governmentAdmin)
-                      FilledButton.icon(
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => HospitalDashboardScreen(
-                              accessToken: session.accessToken,
-                              role: session.user.role,
-                            ),
-                          ),
-                        ),
-                        icon: const Icon(Icons.dashboard_outlined),
-                        label: Text(
-                          session.user.role == UserRole.governmentAdmin
-                              ? context.tr('review_claims')
-                              : context.tr('hospital_dashboard'),
-                        ),
-                      )
-                    else
-                      OutlinedButton.icon(
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => HospitalDashboardScreen(
-                              accessToken: session.accessToken,
-                              role: session.user.role,
-                            ),
-                          ),
-                        ),
-                        icon: const Icon(Icons.lock_outline),
-                        label: Text(context.tr('hospital_restricted')),
+                      Text(
+                        driverPortal
+                            ? 'Driver workspace'
+                            : session.user.role == UserRole.patient
+                                ? 'SnakeCare • ready when it matters'
+                                : '$label ${context.tr('interface')}',
+                        style: Theme.of(context).textTheme.headlineSmall,
                       ),
-                  ],
+                      const SizedBox(height: 8),
+                      Text(
+                        session.user.name ??
+                            session.user.email ??
+                            'SnakeCare user',
+                      ),
+                      Chip(label: Text(label)),
+                      if (session.user.hospitalEmployeeId != null)
+                        Chip(
+                          avatar: const Icon(Icons.badge_outlined, size: 18),
+                          label: Text(session.user.hospitalEmployeeId!),
+                        ),
+                      const SizedBox(height: 12),
+                      if (driverPortal) ...[
+                        const Text(
+                          'Register with your hospital, then open assigned trips. Hospital approval is required. This does not grant medical-record access.',
+                        ),
+                        FilledButton.icon(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => TrackingScreen(
+                                accessToken: session.accessToken,
+                                portal: TrackingPortal.driver,
+                              ),
+                            ),
+                          ),
+                          icon: const Icon(Icons.local_shipping_outlined),
+                          label: const Text('Registration & My trips'),
+                        ),
+                      ],
+                      if (!driverPortal &&
+                          session.user.role == UserRole.patient) ...[
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE53935),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const Text(
+                                'Suspected snakebite?',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Get urgent help. Keep your emergency contacts and health card ready.',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                              const SizedBox(height: 14),
+                              FilledButton.icon(
+                                onPressed: () async {
+                                  final opened = await launchUrl(
+                                    Uri(scheme: 'tel', path: '112'),
+                                  );
+                                  if (!opened && context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'No dialer found. Call 112 using your phone.',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: const Color(0xFFE53935),
+                                ),
+                                icon: const Icon(Icons.call),
+                                label: Text(context.tr('call_112')),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        FilledButton.icon(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => PatientEmergencyCenter(
+                                accessToken: session.accessToken,
+                              ),
+                            ),
+                          ),
+                          style: FilledButton.styleFrom(
+                            backgroundColor:
+                                Theme.of(context).colorScheme.error,
+                            foregroundColor:
+                                Theme.of(context).colorScheme.onError,
+                          ),
+                          icon: const Icon(
+                            Icons.signal_cellular_connected_no_internet_0_bar,
+                          ),
+                          label: const Text('Emergency Center'),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      if (!driverPortal &&
+                          session.user.role == UserRole.patient) ...[
+                        FilledButton.icon(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => MedicalPassportScreen(
+                                accessToken: session.accessToken,
+                              ),
+                            ),
+                          ),
+                          icon: const Icon(Icons.badge_outlined),
+                          label: Text(context.tr('open_passport')),
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => MedicalReportsScreen(
+                                accessToken: session.accessToken,
+                              ),
+                            ),
+                          ),
+                          icon: const Icon(Icons.folder_copy_outlined),
+                          label: Text(context.tr('medical_reports')),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      if (!driverPortal &&
+                          session.user.role != UserRole.patient) ...[
+                        OutlinedButton.icon(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const SystemStatusScreen(),
+                            ),
+                          ),
+                          icon: const Icon(Icons.monitor_heart_outlined),
+                          label: Text(context.tr('system_health')),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      if (session.user.role == UserRole.governmentAdmin) ...[
+                        OutlinedButton.icon(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => UserManagementScreen(
+                                accessToken: session.accessToken,
+                                currentUserId: session.user.id,
+                              ),
+                            ),
+                          ),
+                          icon: const Icon(Icons.manage_accounts_outlined),
+                          label: Text(context.tr('manage_users')),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      if (!driverPortal && session.user.role != UserRole.doctor)
+                        FilledButton.icon(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => TrackingScreen(
+                                accessToken: session.accessToken,
+                                portal: session.user.role ==
+                                            UserRole.hospitalAdmin ||
+                                        session.user.role ==
+                                            UserRole.governmentAdmin
+                                    ? TrackingPortal.hospital
+                                    : TrackingPortal.patient,
+                              ),
+                            ),
+                          ),
+                          icon: const Icon(Icons.emergency),
+                          label: Text(
+                            session.user.role == UserRole.hospitalAdmin ||
+                                    session.user.role ==
+                                        UserRole.governmentAdmin
+                                ? 'Manage ambulances'
+                                : 'Track my ambulance',
+                          ),
+                        ),
+                      const SizedBox(height: 12),
+                      if (session.user.role == UserRole.doctor) ...[
+                        FilledButton.icon(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => ClinicalHistoryScreen(
+                                accessToken: session.accessToken,
+                              ),
+                            ),
+                          ),
+                          icon: const Icon(Icons.history),
+                          label: const Text('Patient history and summary'),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      if (session.user.role == UserRole.hospitalAdmin ||
+                          session.user.role == UserRole.governmentAdmin)
+                        FilledButton.icon(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => HospitalDashboardScreen(
+                                accessToken: session.accessToken,
+                                role: session.user.role,
+                              ),
+                            ),
+                          ),
+                          icon: const Icon(Icons.dashboard_outlined),
+                          label: Text(
+                            session.user.role == UserRole.governmentAdmin
+                                ? context.tr('review_claims')
+                                : context.tr('hospital_dashboard'),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),

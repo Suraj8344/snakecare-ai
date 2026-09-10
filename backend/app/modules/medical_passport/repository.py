@@ -39,6 +39,11 @@ class SqlAlchemyMedicalPassportRepository:
     async def get_user(self, user_id: UUID) -> User | None:
         return await self.session.get(User, user_id)
 
+    async def patient_for_health_id(self, health_id: UUID) -> UUID | None:
+        return await self.session.scalar(
+            select(MedicalPassport.user_id).where(MedicalPassport.health_id == health_id)
+        )
+
     async def get_user_by_email(self, email: str) -> User | None:
         return cast(
             User | None,

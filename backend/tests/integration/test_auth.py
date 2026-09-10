@@ -314,7 +314,10 @@ async def test_patient_controls_clinician_read_access() -> None:
         )
         assert denied.status_code == 403
 
-        await client.get("/api/v1/medical-passport/me", headers=patient_headers)
+        passport_response = await client.get("/api/v1/medical-passport/me", headers=patient_headers)
+        history_url = f"/api/v1/clinical-history/{passport_response.json()['health_id']}"
+        assert (await client.post(history_url, headers=doctor_headers, json={})).status_code == 403
+        assert (await client.post(history_url, headers=patient_headers, json={})).status_code == 403
         grant = await client.post(
             "/api/v1/medical-passport/access-grants",
             headers=patient_headers,
@@ -330,11 +333,17 @@ async def test_patient_controls_clinician_read_access() -> None:
         )
         assert allowed.status_code == 200
 
+        history = await client.post(history_url, headers=doctor_headers, json={})
+        assert history.status_code == 200, history.text
+        assert history.json()["mode"] == "record_extract_only"
+        assert len(history.json()["sections"]) == 5
+
         revoked = await client.delete(
             f"/api/v1/medical-passport/access-grants/{grant.json()['id']}",
             headers=patient_headers,
         )
         assert revoked.status_code == 204
+        assert (await client.post(history_url, headers=doctor_headers, json={})).status_code == 403
 
 
 def sample_lab_pdf() -> bytes:
