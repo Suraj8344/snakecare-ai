@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import AwareDatetime, BaseModel, Field
-from sqlalchemy import or_, select
+from sqlalchemy import false, or_, select
 from sqlalchemy.exc import IntegrityError
 
 from app.api.dependencies import DatabaseSession
@@ -166,7 +166,9 @@ async def workspace(
             or_(
                 TrackingTrip.patient_id == user.id,
                 TrackingTrip.hospital_id.in_(ids),
-                TrackingTrip.driver_id == mine.id if mine and mine.status == "approved" else False,
+                TrackingTrip.driver_id == mine.id
+                if mine and mine.status == "approved"
+                else false(),
             )
         )
         .order_by(TrackingTrip.created_at.desc())
