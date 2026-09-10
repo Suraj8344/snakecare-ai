@@ -4,23 +4,30 @@ import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:snakecare_mobile/src/features/auth/presentation/auth_controller.dart';
+import 'package:snakecare_mobile/src/features/medical_passport/data/medical_passport_repository.dart';
+import 'package:snakecare_mobile/src/features/medical_passport/domain/medical_passport.dart';
+import 'package:snakecare_mobile/src/features/offline_resilience/domain/emergency_share.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter/services.dart';
 import 'package:snakecare_mobile/src/core/localization/app_localizations.dart';
 import 'package:snakecare_mobile/src/features/offline_resilience/data/emergency_platform_service.dart';
 import 'package:snakecare_mobile/src/features/offline_resilience/data/offline_resilience_store.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:youtube_player_iframe/youtube_player_iframe.dart';
+import 'package:snakecare_mobile/src/core/widgets/emergency_video_link.dart';
 
-class OfflineResilienceScreen extends StatefulWidget {
+class OfflineResilienceScreen extends ConsumerStatefulWidget {
   const OfflineResilienceScreen({super.key});
 
   @override
-  State<OfflineResilienceScreen> createState() =>
+  ConsumerState<OfflineResilienceScreen> createState() =>
       _OfflineResilienceScreenState();
 }
 
-class _OfflineResilienceScreenState extends State<OfflineResilienceScreen> {
+class _OfflineResilienceScreenState
+    extends ConsumerState<OfflineResilienceScreen> {
   static const _firstAidVideoId = 'fd42XW9RJeE';
   static const _symptomWeights = <String, int>{
     'Difficulty breathing': 5,
@@ -41,9 +48,18 @@ class _OfflineResilienceScreenState extends State<OfflineResilienceScreen> {
   bool bleBroadcast = false;
   int? riskScore;
   String? riskLabel;
-  double latitude = 18.5204;
-  double longitude = 73.8567;
-  late final YoutubePlayerController videoController;
+  double? latitude;
+  double? longitude;
+  MedicalPassport? passport;
+  String contactStatus = 'Loading saved emergency contacts…';
+  bool sending = false;
+  DateTime? locationAt;
+  List<PassportEmergencyContact> get contacts {
+    final items = [...?passport?.emergencyContacts];
+    items.sort((a, b) => a.priority.compareTo(b.priority));
+    return items;
+  }
+
   EmergencyCapabilities? emergencyCapabilities;
   String transportStatus = 'No SOS transport attempted yet.';
   String signalStatus = 'Signal reading not checked.';
@@ -51,23 +67,7 @@ class _OfflineResilienceScreenState extends State<OfflineResilienceScreen> {
   @override
   void initState() {
     super.initState();
-    videoController = YoutubePlayerController.fromVideoId(
-      videoId: _firstAidVideoId,
-      autoPlay: false,
-      params: const YoutubePlayerParams(
-        showControls: true,
-        showFullscreenButton: true,
-        enableCaption: true,
-      ),
-    );
-    responderMode = OfflineResilienceStore.box.get(
-      'community_responder',
-      defaultValue: false,
-    ) as bool;
-    gatewayNumber.text = OfflineResilienceStore.box.get(
-      'sos_gateway_number',
-      defaultValue: '',
-    ) as String;
+    unawaited(_loadContacts());
     platformService.capabilities().then((value) {
       if (mounted) setState(() => emergencyCapabilities = value);
     });
@@ -81,7 +81,6 @@ class _OfflineResilienceScreenState extends State<OfflineResilienceScreen> {
   void dispose() {
     connectivitySubscription?.cancel();
     gatewayNumber.dispose();
-    videoController.close();
     super.dispose();
   }
 
@@ -99,39 +98,42 @@ class _OfflineResilienceScreenState extends State<OfflineResilienceScreen> {
           foregroundColor: Colors.white,
           actions: const [LanguageMenu()],
         ),
-        body: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _statusBanner(),
-            const SizedBox(height: 14),
-            _callAndSosCard(),
-            const SizedBox(height: 12),
-            _transportStatusCard(),
-            const SizedBox(height: 16),
-            _triageCard(),
-            const SizedBox(height: 16),
-            _firstAidCard(),
-            const SizedBox(height: 16),
-            _videoCard(),
-            const SizedBox(height: 16),
-            _hospitalCard(),
-            const SizedBox(height: 16),
-            _lowSignalCard(),
-            const SizedBox(height: 16),
-            _tripCard(),
-            const SizedBox(height: 16),
-            const Card(
-              color: Color(0xFFFFF3E0),
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Text(
-                  'Honest limitation: if there is no tower, satellite link, or nearby relay phone, a phone-only SOS cannot leave the area. Satellite or LoRa hardware is required for that case.',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-            ),
-          ],
-        ),
+        body: Center(
+            child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    _statusBanner(),
+                    const SizedBox(height: 14),
+                    _callAndSosCard(),
+                    const SizedBox(height: 12),
+                    _transportStatusCard(),
+                    const SizedBox(height: 16),
+                    _triageCard(),
+                    const SizedBox(height: 16),
+                    _firstAidCard(),
+                    const SizedBox(height: 16),
+                    _videoCard(),
+                    const SizedBox(height: 16),
+                    _hospitalCard(),
+                    const SizedBox(height: 16),
+                    _lowSignalCard(),
+                    const SizedBox(height: 16),
+                    _tripCard(),
+                    const SizedBox(height: 16),
+                    const Card(
+                      color: Color(0xFFFFF3E0),
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Text(
+                          'Honest limitation: if there is no tower, satellite link, or nearby relay phone, a phone-only SOS cannot leave the area. Satellite or LoRa hardware is required for that case.',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                  ],
+                ))),
       );
 
   Widget _statusBanner() => Container(
@@ -147,8 +149,8 @@ class _OfflineResilienceScreenState extends State<OfflineResilienceScreen> {
           Expanded(
             child: Text(
               online
-                  ? 'Connected • offline cache and outbox ready'
-                  : 'No data • local triage, 112, SMS/BLE staging available',
+                  ? 'Network detected • delivery is confirmed separately'
+                  : 'Offline • first aid and saved tools remain available',
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),
           ),
@@ -185,7 +187,7 @@ class _OfflineResilienceScreenState extends State<OfflineResilienceScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _queueSos,
+                  onPressed: sending ? null : _queueSos,
                   style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white,
                       side: const BorderSide(color: Colors.white)),
@@ -244,11 +246,11 @@ class _OfflineResilienceScreenState extends State<OfflineResilienceScreen> {
       );
 
   Widget _triageCard() => _section(
-        'On-device triage • rules 2026.08-r1',
+        'Check symptoms',
         Icons.health_and_safety,
         Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           const Text(
-              'Select everything you can observe. No server call is used.'),
+              'Select everything you can observe. Every suspected snakebite needs urgent assessment, even with no symptoms.'),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
@@ -295,49 +297,7 @@ class _OfflineResilienceScreenState extends State<OfflineResilienceScreen> {
   Widget _videoCard() => _section(
         context.tr('video_title'),
         Icons.ondemand_video_outlined,
-        Column(children: [
-          if (online)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: AspectRatio(
-                aspectRatio: 16 / 9,
-                child: YoutubePlayer(controller: videoController),
-              ),
-            )
-          else
-            Container(
-              height: 170,
-              decoration: BoxDecoration(
-                  color: Colors.black87,
-                  borderRadius: BorderRadius.circular(14)),
-              alignment: Alignment.center,
-              padding: const EdgeInsets.all(20),
-              child: Text(
-                context.tr('video_needs_data'),
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          const SizedBox(height: 10),
-          const Text(
-            'Online snakebite first-aid education based on WHO emergency-care standards. The cached written steps above remain available without data.',
-          ),
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: online
-                ? () => launchUrl(
-                      Uri.parse(
-                        'https://www.youtube.com/watch?v=$_firstAidVideoId',
-                      ),
-                      mode: LaunchMode.externalApplication,
-                    )
-                : null,
-            icon: const Icon(Icons.open_in_new),
-            label: Text(
-              online ? 'Open video in YouTube' : 'Video needs mobile data',
-            ),
-          ),
-        ]),
+        const EmergencyVideoLink(videoId: _firstAidVideoId),
       );
 
   Widget _hospitalCard() => _section(
@@ -347,33 +307,52 @@ class _OfflineResilienceScreenState extends State<OfflineResilienceScreen> {
           const Text(
               'Approximate straight-line distance • not road distance or ETA.'),
           const SizedBox(height: 8),
+          const Text(
+              'Reference hospital list. Live stock and distance are not verified.'),
           ...OfflineResilienceStore.hospitals.map(
             (item) => ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const CircleAvatar(child: Icon(Icons.local_hospital)),
               title: Text(item['name'] as String),
               subtitle: Text(item['status'] as String),
-              trailing: Text('≈ ${item['distance_km']} km'),
+              trailing: const Icon(Icons.info_outline),
             ),
           ),
         ]),
       );
 
   Widget _lowSignalCard() => _section(
-        'Weak/zero-signal fallbacks',
+        'Contact someone for help',
         Icons.signal_cellular_connected_no_internet_4_bar,
         Column(children: [
+          Align(alignment: Alignment.centerLeft, child: Text(contactStatus)),
+          if (contacts.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: contacts
+                    .map((contact) => ActionChip(
+                          avatar: const Icon(Icons.person_outline, size: 18),
+                          label:
+                              Text('${contact.name} • ${contact.phoneNumber}'),
+                          onPressed: () => setState(
+                              () => gatewayNumber.text = contact.phoneNumber),
+                        ))
+                    .toList()),
+          ],
+          TextButton.icon(
+              onPressed: _loadContacts,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Reload Medical Passport contacts')),
           TextField(
             controller: gatewayNumber,
             keyboardType: TextInputType.phone,
             decoration: const InputDecoration(
-              labelText: 'Verified SMS / missed-call gateway number',
-              helperText: 'Provided by your hospital or telephony gateway',
+              labelText: 'Emergency contact or verified gateway number',
+              helperText:
+                  'Choose a saved contact above, or enter a phone number.',
               prefixIcon: Icon(Icons.phone_forwarded_outlined),
-            ),
-            onChanged: (value) => OfflineResilienceStore.box.put(
-              'sos_gateway_number',
-              value.trim(),
             ),
           ),
           const SizedBox(height: 10),
@@ -383,14 +362,14 @@ class _OfflineResilienceScreenState extends State<OfflineResilienceScreen> {
             alignment: WrapAlignment.center,
             children: [
               OutlinedButton.icon(
-                onPressed: _prepareSms,
+                onPressed: sending ? null : _prepareSms,
                 icon: const Icon(Icons.sms_outlined),
-                label: const Text('Prepare SOS SMS'),
+                label: const Text('Preview SOS message & QR'),
               ),
               OutlinedButton.icon(
                 onPressed: _prepareMissedCall,
                 icon: const Icon(Icons.phone_callback_outlined),
-                label: const Text('Open gateway dialer'),
+                label: const Text('Call selected contact'),
               ),
             ],
           ),
@@ -399,28 +378,26 @@ class _OfflineResilienceScreenState extends State<OfflineResilienceScreen> {
             contentPadding: EdgeInsets.zero,
             title: const Text('BLE SOS broadcast'),
             subtitle: const Text(
-                'Activates immediately from this emergency screen; Android hardware required'),
+                'Sends a short beacon to nearby compatible receivers. Android only. Enable, then save SOS to start. This does not confirm help is coming.'),
             value: bleBroadcast,
-            onChanged: _toggleBle,
+            onChanged: emergencyCapabilities?.bleAdvertiser == true
+                ? _toggleBle
+                : null,
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Community responder mode'),
-            subtitle:
-                const Text('Opt in to low-power scanning and relay storage'),
-            value: responderMode,
-            onChanged: (value) async {
-              await OfflineResilienceStore.box
-                  .put('community_responder', value);
-              setState(() => responderMode = value);
-            },
+            subtitle: const Text(
+                'Planned: receive nearby SOS beacons and relay them when connected. Scanning and relay are not implemented in this build.'),
+            value: false,
+            onChanged: null,
           ),
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.my_location),
-            title: const Text('Current / nearest known signal point'),
-            subtitle: Text(
-                '${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)} • cached locally'),
+            title: const Text('Your location'),
+            subtitle: Text('${emergencyLocationText(latitude, longitude)}'
+                '${locationAt == null ? '' : '\nCaptured: ${locationAt!.toLocal()}'}'),
             trailing: IconButton(
                 icon: const Icon(Icons.refresh), onPressed: _refreshLocation),
           ),
@@ -436,7 +413,7 @@ class _OfflineResilienceScreenState extends State<OfflineResilienceScreen> {
             ),
           ),
           const Text(
-              'Weak signal: SMS + user-initiated missed-call gateway. Zero signal: BLE relay. Android decides cross-carrier 112 routing.'),
+              'SMS requires cellular service and a messaging app. A missed call carries no symptoms or location. BLE needs a compatible receiver nearby.'),
         ]),
       );
 
@@ -445,7 +422,21 @@ class _OfflineResilienceScreenState extends State<OfflineResilienceScreen> {
         Icons.route_outlined,
         Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           const Text(
-              'Register a trusted contact and expected return time before entering a known dead zone.'),
+              'Save your return time and share your plan with a trusted contact. This build does not automatically notify anyone if you are overdue.'),
+          if (OfflineResilienceStore.box.get('active_trip')
+              case final Map<dynamic, dynamic> trip) ...[
+            const SizedBox(height: 10),
+            Text(
+                'Contact: ${trip['contact']}\nReturn by: ${trip['expected_return']}'),
+            TextButton.icon(
+              onPressed: () async {
+                await OfflineResilienceStore.box.delete('active_trip');
+                if (mounted) setState(() {});
+              },
+              icon: const Icon(Icons.check_circle_outline),
+              label: const Text('I am back • clear trip'),
+            ),
+          ],
           const SizedBox(height: 10),
           OutlinedButton.icon(
               onPressed: _registerTrip,
@@ -493,8 +484,12 @@ class _OfflineResilienceScreenState extends State<OfflineResilienceScreen> {
     await _refreshLocation();
     final payload = _sosPayload();
     await OfflineResilienceStore.queueSos(payload);
-    var status = 'SOS saved in the encrypted outbox.';
-    if (bleBroadcast && emergencyCapabilities?.bleAdvertiser == true) {
+    var status =
+        'SOS saved on this device. No delivery confirmed. Use the SMS preview to contact someone now.';
+    if (bleBroadcast &&
+        emergencyCapabilities?.bleAdvertiser == true &&
+        latitude != null &&
+        longitude != null) {
       try {
         await platformService.startBleBroadcast(_blePayload(payload));
         status = '$status BLE relay beacon is active.';
@@ -525,19 +520,87 @@ class _OfflineResilienceScreenState extends State<OfflineResilienceScreen> {
     return 'SC1|$score|$lat|$lon';
   }
 
-  String _sosMessage() => 'SnakeCare SOS • Risk: ${riskLabel ?? 'UNASSESSED'} '
-      '(score ${riskScore ?? 0}) • GPS: '
-      '${latitude.toStringAsFixed(5)},${longitude.toStringAsFixed(5)} • '
+  String _sosMessage() =>
+      'SnakeCare SOS • Suspected snakebite\nRisk: ${riskLabel ?? 'UNASSESSED'} '
+      '(score ${riskScore ?? 0})\n${emergencyLocationText(latitude, longitude)}\n'
       'Symptoms: ${selected.isEmpty ? 'not entered' : selected.join(', ')} • '
       'Call the patient and dispatch help. This is user-reported information.';
 
   Future<void> _prepareSms() async {
+    setState(() => sending = true);
     _assess();
     await _refreshLocation();
+    if (!mounted) return;
+    var includeHealth = false;
+    String message() =>
+        '${_sosMessage()}${includeHealth && passport != null ? '\n\n${emergencyHealthSummary(passport!)}' : ''}';
+    final send = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+            builder: (context, update) => AlertDialog(
+                  title: const Text('Review your SOS'),
+                  content: SizedBox(
+                      width: 480,
+                      child: SingleChildScrollView(
+                          child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                              'To: ${gatewayNumber.text.isEmpty ? 'No number selected' : gatewayNumber.text}'),
+                          CheckboxListTile(
+                            contentPadding: EdgeInsets.zero,
+                            value: includeHealth,
+                            onChanged: passport == null
+                                ? null
+                                : (value) => update(
+                                    () => includeHealth = value ?? false),
+                            title: const Text(
+                                'Include emergency health information'),
+                            subtitle: const Text(
+                                'Name, Health ID, blood group, allergies, conditions and medication names. Anyone receiving it can read it.'),
+                          ),
+                          SelectableText(message()),
+                          const SizedBox(height: 12),
+                          const Text(
+                              'SMS includes the text below the QR; an SMS cannot attach a QR image. Scan this code on another phone to read the same information offline.'),
+                          const SizedBox(height: 8),
+                          Center(
+                              child: QrImageView(
+                                  data: message(),
+                                  size: 220,
+                                  backgroundColor: Colors.white)),
+                          TextButton.icon(
+                              onPressed: () async {
+                                await Clipboard.setData(
+                                    ClipboardData(text: message()));
+                                if (context.mounted)
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text('SOS copied')));
+                              },
+                              icon: const Icon(Icons.copy),
+                              label: const Text('Copy message')),
+                        ],
+                      ))),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(dialogContext, false),
+                        child: const Text('Close')),
+                    FilledButton(
+                        onPressed: validEmergencyPhone(gatewayNumber.text)
+                            ? () => Navigator.pop(dialogContext, true)
+                            : null,
+                        child: const Text('Open SMS app')),
+                  ],
+                )));
+    if (!mounted) return;
+    setState(() => sending = false);
+    if (send != true) return;
     try {
       await platformService.prepareSms(
         number: gatewayNumber.text,
-        message: _sosMessage(),
+        message: message(),
       );
       _setTransportStatus(
         'SOS SMS prepared. Confirm and press Send in the messaging app.',
@@ -551,7 +614,7 @@ class _OfflineResilienceScreenState extends State<OfflineResilienceScreen> {
     try {
       await platformService.prepareMissedCall(gatewayNumber.text);
       _setTransportStatus(
-        'Gateway number opened in the dialer. Place and end the call manually.',
+        'Contact opened in the dialer. Place and end the call manually.',
       );
     } on PlatformException catch (error) {
       _setTransportStatus(error.message ?? 'Gateway dialer failed.');
@@ -609,6 +672,9 @@ class _OfflineResilienceScreenState extends State<OfflineResilienceScreen> {
   }
 
   Future<void> _refreshLocation() async {
+    latitude = null;
+    longitude = null;
+    locationAt = null;
     try {
       if (!await Geolocator.isLocationServiceEnabled()) return;
       var permission = await Geolocator.checkPermission();
@@ -616,24 +682,51 @@ class _OfflineResilienceScreenState extends State<OfflineResilienceScreen> {
         permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) return;
-      final position = await Geolocator.getCurrentPosition();
+      final position = await Geolocator.getCurrentPosition()
+          .timeout(const Duration(seconds: 12));
       if (mounted)
         setState(() {
           latitude = position.latitude;
           longitude = position.longitude;
+          locationAt = DateTime.now();
         });
-      await OfflineResilienceStore.box.put('last_signal_point', {
-        'lat': latitude,
-        'lon': longitude,
-        'at': DateTime.now().toIso8601String()
+    } catch (_) {
+      // Never substitute demo coordinates for a patient's real location.
+    }
+  }
+
+  Future<void> _loadContacts() async {
+    final session = ref.read(authControllerProvider).valueOrNull;
+    if (session == null) {
+      if (mounted)
+        setState(() => contactStatus =
+            'Sign in to load Medical Passport contacts, or enter a number manually.');
+      return;
+    }
+    try {
+      final data = await ref
+          .read(medicalPassportRepositoryProvider)
+          .getOwn(session.accessToken);
+      if (!mounted) return;
+      setState(() {
+        passport = data;
+        contactStatus = contacts.isEmpty
+            ? 'No saved contacts. Add them in Medical Passport.'
+            : 'Saved Medical Passport contacts • tap to select';
+        if (gatewayNumber.text.isEmpty && contacts.isNotEmpty)
+          gatewayNumber.text = contacts.first.phoneNumber;
       });
     } catch (_) {
-      // Keep the last cached coordinates when hardware/browser location is unavailable.
+      if (mounted)
+        setState(() => contactStatus =
+            'Could not reload contacts. Enter a number manually or try again when connected.');
     }
   }
 
   Future<void> _registerTrip() async {
-    final contact = TextEditingController();
+    final contact = TextEditingController(
+        text:
+            contacts.isEmpty ? gatewayNumber.text : contacts.first.phoneNumber);
     var expected = DateTime.now().add(const Duration(hours: 4));
     final save = await showDialog<bool>(
       context: context,
@@ -642,8 +735,19 @@ class _OfflineResilienceScreenState extends State<OfflineResilienceScreen> {
         content: StatefulBuilder(
             builder: (context, setDialogState) =>
                 Column(mainAxisSize: MainAxisSize.min, children: [
+                  if (contacts.isNotEmpty)
+                    Wrap(
+                        spacing: 6,
+                        children: contacts
+                            .map((item) => ActionChip(
+                                  label: Text(item.name),
+                                  onPressed: () => setDialogState(
+                                      () => contact.text = item.phoneNumber),
+                                ))
+                            .toList()),
                   TextField(
                       controller: contact,
+                      keyboardType: TextInputType.phone,
                       decoration:
                           const InputDecoration(labelText: 'Trusted contact')),
                   const SizedBox(height: 12),
@@ -651,8 +755,21 @@ class _OfflineResilienceScreenState extends State<OfflineResilienceScreen> {
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Expected return'),
                     subtitle: Text(expected.toLocal().toString()),
-                    onTap: () => setDialogState(() =>
-                        expected = expected.add(const Duration(hours: 1))),
+                    onTap: () async {
+                      final date = await showDatePicker(
+                          context: context,
+                          initialDate: expected,
+                          firstDate: DateTime.now(),
+                          lastDate:
+                              DateTime.now().add(const Duration(days: 30)));
+                      if (date == null || !context.mounted) return;
+                      final time = await showTimePicker(
+                          context: context,
+                          initialTime: TimeOfDay.fromDateTime(expected));
+                      if (time != null)
+                        setDialogState(() => expected = DateTime(date.year,
+                            date.month, date.day, time.hour, time.minute));
+                    },
                   ),
                 ])),
         actions: [
@@ -665,12 +782,20 @@ class _OfflineResilienceScreenState extends State<OfflineResilienceScreen> {
         ],
       ),
     );
-    if (save == true && contact.text.trim().isNotEmpty) {
+    if (save == true &&
+        (!validEmergencyPhone(contact.text) ||
+            !expected.isAfter(DateTime.now()))) {
+      _setTransportStatus(
+          'Enter a valid phone number and a future return time.');
+    } else if (save == true) {
       await OfflineResilienceStore.saveTrip(
           contact: contact.text.trim(), expectedReturn: expected);
-      if (mounted)
+      if (mounted) {
+        setState(() {});
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Trip saved locally and queued for sync.')));
+            content: Text(
+                'Trip saved on this device. Tell your contact your return time; automatic alerts are not active.')));
+      }
     }
     contact.dispose();
   }

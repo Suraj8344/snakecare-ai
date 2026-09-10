@@ -1,0 +1,9 @@
+.dart_tool
+build
+.gradle-user
+.android-user
+.localappdata
+android/.gradle
+android/app/build
+ios/Pods
+test

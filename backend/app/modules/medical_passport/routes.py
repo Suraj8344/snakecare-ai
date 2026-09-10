@@ -1,9 +1,14 @@
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Request, status
+from pydantic import BaseModel, Field
 
 from app.modules.auth.dependencies import CurrentUser
+from app.modules.auth.domain import UserRole
 from app.modules.medical_passport.dependencies import MedicalPassportServiceDependency
+from app.modules.medical_passport.domain import PassportPermissionDenied
+from app.modules.medical_passport.history import history_sections
 from app.modules.medical_passport.schemas import (
     GrantCreate,
     GrantView,
@@ -12,6 +17,40 @@ from app.modules.medical_passport.schemas import (
 )
 
 router = APIRouter(tags=["medical-passport"])
+
+
+class HistoryQuestion(BaseModel):
+    question: str = Field(default="", max_length=500)
+
+
+@router.post("/clinical-history/{health_id}")
+async def clinical_history(
+    health_id: UUID,
+    payload: HistoryQuestion,
+    request: Request,
+    service: MedicalPassportServiceDependency,
+    current_user: CurrentUser,
+) -> dict[str, Any]:
+    if current_user.role != UserRole.DOCTOR.value:
+        raise PassportPermissionDenied
+    patient_id = await service.repository.patient_for_health_id(health_id)
+    if patient_id is None:
+        raise PassportPermissionDenied
+    passport = await service.read_patient(current_user, patient_id, request_id(request))
+    record = PassportView.model_validate(passport).model_dump(mode="json")
+    return {
+        "health_id": str(health_id),
+        "patient_name": record["full_name"],
+        "updated_at": record["updated_at"],
+        "version": record["version"],
+        "mode": "record_extract_only",
+        "notice": (
+            "Patient-reported Medical Passport only. Reports and prior cases are not included. "
+            "Not an AI-generated clinical assessment. Verify against original records; "
+            "no external AI service was contacted."
+        ),
+        "sections": history_sections(record, payload.question),
+    }
 
 
 def request_id(request: Request) -> str | None:

@@ -10,6 +10,7 @@ from alembic import context
 from app.core.config import get_settings
 from app.infrastructure.database.base import Base
 from app.infrastructure.database.models import SystemMetadata  # noqa: F401
+from app.modules.ambulance_tracking import models as tracking_models  # noqa: F401
 from app.modules.auth.models import AuthAuditEvent, RefreshSession, User  # noqa: F401
 from app.modules.emergency_handoff import models as emergency_handoff_models  # noqa: F401
 from app.modules.hospital_coordination import models as hospital_models  # noqa: F401

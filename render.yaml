@@ -1,5 +1,14 @@
 services:
   - type: web
+    name: snakecare-authority
+    runtime: docker
+    plan: free
+    dockerfilePath: ./mobile/Dockerfile.web
+    dockerContext: ./mobile
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+
+  - type: web
     name: snakecare-api
     runtime: docker
     plan: free
@@ -25,7 +34,7 @@ services:
       - key: SNAKECARE_GEMINI_ENABLED
         value: "false"
       - key: SNAKECARE_CORS_ORIGINS
-        value: '["http://127.0.0.1:8768","http://localhost:8768"]'
+        value: '["http://127.0.0.1:8768","http://localhost:8768","https://snakecare-authority.onrender.com"]'
       - key: SNAKECARE_REPORT_STORAGE_PATH
         value: /tmp/snakecare/reports
       - key: SNAKECARE_SNAKEBITE_PHOTO_STORAGE_PATH

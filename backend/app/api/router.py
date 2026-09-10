@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.routes.health import router as health_router
+from app.modules.ambulance_tracking.routes import router as ambulance_tracking_router
 from app.modules.auth.routes import router as auth_router
 from app.modules.emergency_handoff.routes import router as emergency_handoff_router
 from app.modules.hospital_coordination.routes import router as hospital_coordination_router
@@ -10,6 +11,7 @@ from app.modules.medical_reports.routes import router as medical_reports_router
 from app.modules.snakebite_emergency.routes import router as snakebite_emergency_router
 
 api_router = APIRouter()
+api_router.include_router(ambulance_tracking_router)
 api_router.include_router(health_router, tags=["operations"])
 api_router.include_router(auth_router)
 api_router.include_router(emergency_handoff_router)

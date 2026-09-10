@@ -12,7 +12,7 @@ import 'package:snakecare_mobile/src/features/snakebite_emergency/data/snakebite
 import 'package:snakecare_mobile/src/features/snakebite_emergency/domain/snakebite_assessment.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:youtube_player_iframe/youtube_player_iframe.dart';
+import 'package:snakecare_mobile/src/core/widgets/emergency_video_link.dart';
 
 const offlineFirstAidSteps = <String>[
   'Move away from the snake. Do not try to catch or kill it.',
@@ -60,7 +60,6 @@ class _SnakebiteEmergencyScreenState
   final speech = SpeechToText();
   final scrollController = ScrollController();
   final symptomsKey = GlobalKey();
-  YoutubePlayerController? videoController;
 
   String biteSite = 'unknown';
   String consciousness = 'alert';
@@ -71,26 +70,9 @@ class _SnakebiteEmergencyScreenState
   Position? position;
 
   @override
-  void initState() {
-    super.initState();
-    if (widget.showVideo) {
-      videoController = YoutubePlayerController.fromVideoId(
-        videoId: _firstAidVideoId,
-        autoPlay: false,
-        params: const YoutubePlayerParams(
-          showControls: true,
-          showFullscreenButton: true,
-          enableCaption: true,
-        ),
-      );
-    }
-  }
-
-  @override
   void dispose() {
     speech.stop();
     scrollController.dispose();
-    videoController?.close();
     for (final controller in [
       age,
       notes,
@@ -126,9 +108,8 @@ class _SnakebiteEmergencyScreenState
               const SizedBox(height: 16),
               const _FirstAidCard(),
               const SizedBox(height: 16),
-              if (videoController != null)
+              if (widget.showVideo)
                 _EmergencyVideoCard(
-                  controller: videoController!,
                   videoId: _firstAidVideoId,
                   onContinue: _scrollToSymptoms,
                 ),
@@ -754,11 +735,9 @@ class _FirstAidCard extends StatelessWidget {
 
 class _EmergencyVideoCard extends StatelessWidget {
   const _EmergencyVideoCard({
-    required this.controller,
     required this.videoId,
     required this.onContinue,
   });
-  final YoutubePlayerController controller;
   final String videoId;
   final VoidCallback onContinue;
 
@@ -774,31 +753,7 @@ class _EmergencyVideoCard extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 12),
-              Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 760),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: AspectRatio(
-                      aspectRatio: 16 / 9,
-                      child: YoutubePlayer(controller: controller),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Snakebite first-aid education based on WHO emergency-care standards. Call emergency services immediately; video guidance does not replace medical care.',
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: () => launchUrl(
-                  Uri.parse('https://www.youtube.com/watch?v=$videoId'),
-                  mode: LaunchMode.externalApplication,
-                ),
-                icon: const Icon(Icons.open_in_new),
-                label: const Text('Open video in YouTube'),
-              ),
+              EmergencyVideoLink(videoId: videoId),
               const SizedBox(height: 10),
               FilledButton.icon(
                 onPressed: onContinue,

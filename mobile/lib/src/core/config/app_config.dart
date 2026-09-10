@@ -10,6 +10,8 @@ class AppConfig {
     'FIREBASE_ENABLED',
   );
 
+  static const bool staffWebOnly = bool.fromEnvironment('STAFF_WEB_ONLY');
+
   static const String firebaseApiKey =
       String.fromEnvironment('FIREBASE_API_KEY');
   static const String firebaseAppId = String.fromEnvironment('FIREBASE_APP_ID');

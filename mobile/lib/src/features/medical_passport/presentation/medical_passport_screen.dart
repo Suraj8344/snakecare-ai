@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:snakecare_mobile/src/features/offline_resilience/domain/emergency_share.dart';
 import 'package:snakecare_mobile/src/core/localization/app_localizations.dart';
 import 'package:snakecare_mobile/src/features/medical_passport/data/medical_passport_repository.dart';
 import 'package:snakecare_mobile/src/features/medical_passport/domain/medical_passport.dart';
@@ -56,9 +57,14 @@ class MedicalPassportScreen extends ConsumerWidget {
             ),
           ),
         ),
-        data: (data) => _PassportBody(
-          passport: data,
-          onEdit: () => _edit(context, ref, data),
+        data: (data) => Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1000),
+            child: _PassportBody(
+              passport: data,
+              onEdit: () => _edit(context, ref, data),
+            ),
+          ),
         ),
       ),
     );
@@ -320,27 +326,51 @@ class _PassportBody extends StatelessWidget {
     );
   }
 
-  Future<void> _showHealthQr(BuildContext context) => showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Emergency Health ID'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              QrImageView(
-                data: 'snakecare://medical-passport/${passport.healthId}',
-                size: 220,
-                backgroundColor: Colors.white,
+  Future<void> _showHealthQr(BuildContext context) async {
+    var includeHealth = false;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, update) => AlertDialog(
+          title: const Text('Emergency health card'),
+          content: SizedBox(
+            width: 440,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CheckboxListTile(
+                    value: includeHealth,
+                    onChanged: (value) =>
+                        update(() => includeHealth = value ?? false),
+                    title: const Text('Include emergency health summary'),
+                    subtitle: const Text(
+                      'Anyone scanning can read the selected summary. Insurance and reports are excluded.',
+                    ),
+                  ),
+                  QrImageView(
+                    data: includeHealth
+                        ? emergencyHealthSummary(passport)
+                        : 'snakecare://medical-passport/${passport.healthId}',
+                    size: 220,
+                    backgroundColor: Colors.white,
+                  ),
+                  const SizedBox(height: 12),
+                  SelectableText(
+                    includeHealth
+                        ? emergencyHealthSummary(passport)
+                        : passport.healthId,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    includeHealth
+                        ? 'This QR contains the visible summary and can be read offline.'
+                        : 'This QR contains only your Health ID. Full medical records require authorized access.',
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              SelectableText(passport.healthId, textAlign: TextAlign.center),
-              const SizedBox(height: 8),
-              const Text(
-                'The QR contains only your Health ID. Medical information '
-                'still requires authorized SnakeCare access.',
-                textAlign: TextAlign.center,
-              ),
-            ],
+            ),
           ),
           actions: [
             FilledButton(
@@ -349,7 +379,9 @@ class _PassportBody extends StatelessWidget {
             ),
           ],
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _Section extends StatelessWidget {
