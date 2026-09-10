@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 import pytest
 from test_auth import auth_client, exchange
@@ -41,6 +42,31 @@ async def test_hospital_approval_assignment_private_gps_and_end_trip():
         assert response.status_code == 201, response.text
         hospital_id = response.json()["id"]
         base = "/api/v1/ambulance-tracking"
+        hospitals = await client.get(
+            f"{base}/hospitals",
+            headers=headers(patient),
+            params={"search": "Test hosp"},
+        )
+        assert hospitals.status_code == 200, hospitals.text
+        assert hospitals.json() == [
+            {
+                "id": hospital_id,
+                "name": "Test hospital",
+                "address": "Synthetic street 123",
+            }
+        ]
+        assert (
+            await client.post(
+                f"{base}/trips",
+                headers=headers(patient),
+                json={
+                    "hospital_id": str(uuid4()),
+                    "latitude": 18.5,
+                    "longitude": 73.8,
+                    "share_pickup_consent": True,
+                },
+            )
+        ).status_code == 404
         response = await client.post(
             f"{base}/drivers",
             headers=headers(driver),
@@ -54,6 +80,18 @@ async def test_hospital_approval_assignment_private_gps_and_end_trip():
         assert response.status_code == 201, response.text
         driver_id = response.json()["id"]
         assert response.json()["status"] == "pending"
+        assert (
+            await client.post(
+                f"{base}/drivers",
+                headers=headers(driver),
+                json={
+                    "hospital_id": hospital_id,
+                    "driver_name": "Synthetic Driver",
+                    "vehicle_number": "TEST123",
+                    "verification_reference": "EMP-123",
+                },
+            )
+        ).status_code == 409
         assert (
             await client.post(
                 f"{base}/drivers/{driver_id}/review",
@@ -133,3 +171,16 @@ async def test_hospital_approval_assignment_private_gps_and_end_trip():
                 json={"status": "revoked"},
             )
         ).status_code == 200
+        refreshed = await client.post(
+            f"{base}/drivers",
+            headers=headers(driver),
+            json={
+                "hospital_id": hospital_id,
+                "driver_name": "Synthetic Driver Updated",
+                "vehicle_number": "TEST124",
+                "verification_reference": "EMP-124",
+            },
+        )
+        assert refreshed.status_code == 201, refreshed.text
+        assert refreshed.json()["status"] == "pending"
+        assert refreshed.json()["vehicle_number"] == "TEST124"

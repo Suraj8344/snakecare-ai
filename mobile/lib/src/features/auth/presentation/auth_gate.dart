@@ -834,7 +834,11 @@ class RoleHomeScreen extends ConsumerWidget {
                             session.user.email ??
                             'SnakeCare user',
                       ),
-                      Chip(label: Text(label)),
+                      Chip(
+                        label: Text(
+                          driverPortal ? 'Ambulance Driver' : label,
+                        ),
+                      ),
                       if (session.user.hospitalEmployeeId != null)
                         Chip(
                           avatar: const Icon(Icons.badge_outlined, size: 18),
