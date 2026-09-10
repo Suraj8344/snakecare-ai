@@ -1,6 +1,7 @@
 """Hospital-approved driver memberships and private active-trip GPS."""
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision = "20260908_0014"
